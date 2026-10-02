@@ -213,7 +213,7 @@ export function getStoredFullFragments(): FullFragmentRecord[] {
       const validStored = parsed.filter(item => !DEPRECATED_DEFAULT_IDS.has(item.id));
 
       if (validStored.length > 0) {
-        // Ensure baseline seed fragments (03:21, 09:41, 10:00, 01:16) exist and have latest links
+        // Ensure baseline seed fragments (03:21, 09:41, 10:00, 01:16, 11:11) exist and have latest links
         const existingIds = new Set(validStored.map(i => i.id));
         const baseMap = new Map(baselineSeed.map(b => [b.id, b]));
         const merged = validStored.map(item => {
