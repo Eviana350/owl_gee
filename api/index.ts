@@ -8,6 +8,18 @@ import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand, PutBucketCorsCommand, GetBucketCorsCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import {
+  sendEmail,
+  sendContactTransmission,
+  sendProposalEmailNotification,
+  recordInboundEmail,
+  sendLicenseDeliveryEmail,
+  inMemoryEmailStore,
+  resendClient,
+  COLLABORATION_EMAIL,
+  ADMIN_NOTIFICATION_EMAIL,
+  RESEND_FROM_EMAIL
+} from "./emailService.ts";
 
 // --- Types ---
 interface User {
@@ -30,7 +42,7 @@ interface License {
   licenseeEmail?: string;
   licenseeAddress?: string; // Licensee Address
   licensor?: string; // LOMON LLC / The Owl Clock
-  licensorEmail?: string; // licensing@theowlclock.com
+  licensorEmail?: string; // licensing@theowlclock.io
   licensorOrganization?: string; // LOMON LLC (d/b/a The Owl Clock)
   legalContactName?: string; // Christopher Solomon Paul
   producerCredit?: string; // Produced by Lomon Christopher / The Owl Clock
@@ -267,7 +279,108 @@ export const PAYPAL_CLIENT_ID = (
 ).trim();
 export const PAYPAL_CLIENT_SECRET = (process.env.PAYPAL_CLIENT_SECRET || "EInidsYBRSD2BpbMpVU_IroxTtB3RLeU7x3vfkb5KDh2GNzPN34Q7QK8YF_GbhBbmlbb1ow4dd185Y3P").trim();
 export const PAYPAL_BASE_URL = isLivePayPal ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
-export const PAYPAL_HOSTED_PAYMENT_URL = (process.env.PAYPAL_HOSTED_PAYMENT_URL || "https://www.paypal.com/ncp/payment/EGWC37L2LBCAQ").trim();
+export const PAYPAL_HOSTED_PAYMENT_URL = (process.env.PAYPAL_HOSTED_PAYMENT_URL || "https://www.paypal.com/ncp/payment/CFHDJFEV6Y7WJ").trim();
+
+// Official LOMON Archive Clearance PayPal Hosted Payment Plans
+export interface PayPalHostedPlan {
+  code: string;
+  tierId: string;
+  title: string;
+  price: number;
+  priceDisplay: string;
+  hostedId: string;
+  url: string;
+}
+
+export const PAYPAL_HOSTED_PLANS: Record<string, PayPalHostedPlan> = {
+  "TOC-AAL": {
+    code: "TOC-AAL",
+    tierId: "access",
+    title: "Archive Access License",
+    price: 150,
+    priceDisplay: "$150",
+    hostedId: "CFHDJFEV6Y7WJ",
+    url: "https://www.paypal.com/ncp/payment/CFHDJFEV6Y7WJ"
+  },
+  "TOC-CRL": {
+    code: "TOC-CRL",
+    tierId: "release",
+    title: "Commercial Release License",
+    price: 500,
+    priceDisplay: "$500",
+    hostedId: "D7BRUR9T5CPNA",
+    url: "https://www.paypal.com/ncp/payment/D7BRUR9T5CPNA"
+  },
+  "TOC-CEL": {
+    code: "TOC-CEL",
+    tierId: "commercial",
+    title: "Commercial Exploitation License",
+    price: 1000,
+    priceDisplay: "$1,000",
+    hostedId: "KKUAY9LJHBKCE",
+    url: "https://www.paypal.com/ncp/payment/KKUAY9LJHBKCE"
+  },
+  "TOC-SML": {
+    code: "TOC-SML",
+    tierId: "sync",
+    title: "Synchronization and Master License",
+    price: 0,
+    priceDisplay: "CUSTOM PROPOSAL",
+    hostedId: "MLHYEFHQY8494",
+    url: "https://www.paypal.com/ncp/payment/MLHYEFHQY8494"
+  },
+  "TOC-EAA": {
+    code: "TOC-EAA",
+    tierId: "exclusive",
+    title: "Exclusive Archive Acquisition",
+    price: 5000,
+    priceDisplay: "$5,000",
+    hostedId: "KCXV2FHADXRDL",
+    url: "https://www.paypal.com/ncp/payment/KCXV2FHADXRDL"
+  },
+  "TOC-PCOL": {
+    code: "TOC-PCOL",
+    tierId: "collaboration",
+    title: "Producer Collaboration",
+    price: 0,
+    priceDisplay: "COLLABORATION",
+    hostedId: "UZY4LJVGTHQC4",
+    url: "https://www.paypal.com/ncp/payment/UZY4LJVGTHQC4"
+  }
+};
+
+export function resolvePayPalHostedPlan(params: { paymentId?: string; tierId?: string; licenseCode?: string; amount?: number; items?: any[] }): PayPalHostedPlan {
+  const { paymentId, tierId, licenseCode, amount, items } = params;
+  
+  if (paymentId) {
+    const cleanPaymentId = paymentId.trim();
+    for (const plan of Object.values(PAYPAL_HOSTED_PLANS)) {
+      if (plan.hostedId === cleanPaymentId) return plan;
+    }
+  }
+
+  if (licenseCode) {
+    const upperCode = licenseCode.trim().toUpperCase();
+    if (PAYPAL_HOSTED_PLANS[upperCode]) return PAYPAL_HOSTED_PLANS[upperCode];
+  }
+
+  const candidateTier = (tierId || items?.[0]?.tierId || "").toLowerCase();
+  if (candidateTier.includes("exclus") || candidateTier === "exclusive" || candidateTier === "eaa") return PAYPAL_HOSTED_PLANS["TOC-EAA"];
+  if (candidateTier.includes("exploit") || candidateTier.includes("commercial") || candidateTier === "cel") return PAYPAL_HOSTED_PLANS["TOC-CEL"];
+  if (candidateTier.includes("release") || candidateTier === "crl") return PAYPAL_HOSTED_PLANS["TOC-CRL"];
+  if (candidateTier.includes("sync") || candidateTier === "sml") return PAYPAL_HOSTED_PLANS["TOC-SML"];
+  if (candidateTier.includes("collab") || candidateTier === "pcol") return PAYPAL_HOSTED_PLANS["TOC-PCOL"];
+  if (candidateTier.includes("access") || candidateTier === "aal") return PAYPAL_HOSTED_PLANS["TOC-AAL"];
+
+  const numAmount = Math.round(Number(amount) || 0);
+  if (numAmount >= 4500) return PAYPAL_HOSTED_PLANS["TOC-EAA"];
+  if (numAmount >= 900 && numAmount <= 1500) return PAYPAL_HOSTED_PLANS["TOC-CEL"];
+  if (numAmount >= 400 && numAmount <= 600) return PAYPAL_HOSTED_PLANS["TOC-CRL"];
+  if (numAmount > 0 && numAmount <= 200) return PAYPAL_HOSTED_PLANS["TOC-AAL"];
+
+  return PAYPAL_HOSTED_PLANS["TOC-AAL"];
+}
+
 console.log(`[API SERVER] PayPal Gateway Mode: ${isLivePayPal ? "LIVE (PRODUCTION)" : "SANDBOX (TESTING)"} -> ${PAYPAL_BASE_URL}`);
 
 const app = express();
@@ -670,28 +783,6 @@ const mockFragments: Fragment[] = [
     }
   },
   { 
-    id: "07:15", 
-    name: "07:15 AM", 
-    timestamp: "07:15 AM", 
-    classification: "RECOVERY STATE", 
-    observation: "Time Capsule Entry 0715. Tonal Axis: C Minor. Tempo / Pulse: 110 BPM. Runtime: 02:49. Recovery Status: FULLY RECOVERED.", 
-    duration: "02:49", 
-    description: "Time Capsule Entry 0715. High-fidelity recovered tape fragment carrying a C Minor tonal axis at 110 BPM.", 
-    isExclusive: false, 
-    frequency: 261.63, 
-    synthType: "keys", 
-    bpm: 110, 
-    status: "Published", 
-    plays: 980, 
-    revenue: 150, 
-    tonalSignature: "C Minor", 
-    recoveryState: "Fully Recovered", 
-    fullRecoveryDate: "2026.08.15", 
-    archivist: "LOMON", 
-    mp3Preview: "https://pub-330327ad4a1d48cc845ec672277e634d.r2.dev/3/3%3B21%20PM%20E%205%20(1).mp3",
-    audioUrl: "https://pub-330327ad4a1d48cc845ec672277e634d.r2.dev/3/3%3B21%20PM%20E%205%20(1).mp3"
-  },
-  { 
     id: "11:11", 
     name: "11:11 PM", 
     timestamp: "11:11 PM", 
@@ -941,13 +1032,287 @@ function generateToken(): string {
   return crypto.randomBytes(32).toString("hex");
 }
 
-// Helper: send premium transaction license dispatch email
+// Helper: send premium transaction license dispatch email via Resend
 async function sendLicenseEmail(email: string, licenses: License[], amountNgn: number, reference: string): Promise<string> {
-  console.log(`[EMAIL BYPASS] Email dispatch disabled as per instructions. No transmission email will be sent to ${email} for reference ${reference}.`);
-  return "";
+  try {
+    const primaryLicense = licenses[0];
+    const planCode = primaryLicense?.type?.split("—")?.[0]?.trim() || "TOC-AAL";
+    const buyerName = primaryLicense?.licenseeLegalName || email;
+    
+    // Find matching audio deliverable files
+    const fragMatch = mockFragments.find(f => f.id === primaryLicense?.song || f.name === primaryLicense?.song);
+    const audioFiles: { name: string; url: string }[] = [];
+    if (fragMatch) {
+      if (fragMatch.wavMaster) audioFiles.push({ name: "High-Resolution Master WAV (24-bit/48kHz)", url: fragMatch.wavMaster });
+      if (fragMatch.mp3Preview) audioFiles.push({ name: "Reference Master MP3 (320kbps)", url: fragMatch.mp3Preview });
+      if (fragMatch.stemsZip) audioFiles.push({ name: "Complete Trackout & Stem Suite ZIP", url: fragMatch.stemsZip });
+    }
+
+    await sendLicenseDeliveryEmail({
+      orderId: reference,
+      buyerEmail: email,
+      buyerName,
+      planTitle: primaryLicense?.type || "Archive License",
+      planCode,
+      priceDisplay: `$${amountNgn}`,
+      audioFiles: audioFiles.length > 0 ? audioFiles : undefined,
+      transactionRef: reference
+    });
+    console.log(`[RESEND LICENSE DISPATCH] Dispatched covenant license assets to ${email} for ref: ${reference}`);
+    return "SENT_VIA_RESEND";
+  } catch (err: any) {
+    console.error("[RESEND LICENSE DISPATCH FAILED]:", err.message);
+    return "";
+  }
 }
 
 // --- API ENDPOINTS ---
+
+// Email Configuration Diagnostics Endpoint
+app.get("/api/emails/config", (_req, res) => {
+  res.json({
+    success: true,
+    resendConfigured: Boolean(resendClient),
+    smtpConfigured: Boolean(process.env.SMTP_USER && process.env.SMTP_PASS),
+    fromEmail: RESEND_FROM_EMAIL,
+    adminNotificationEmail: ADMIN_NOTIFICATION_EMAIL,
+    collaborationEmail: COLLABORATION_EMAIL,
+    contactEmail: "contact@theowlclock.io",
+    legalEmail: "legal@theowlclock.io",
+    inboundWebhookUrl: "/api/webhooks/resend-inbound",
+    instructions: {
+      outbound: "Add RESEND_API_KEY to your environment variables to route emails through Resend.",
+      inbound: "In Resend dashboard -> Inbound -> Add Webhook: set URL to https://your-domain.com/api/webhooks/resend-inbound",
+      collaboration: `All collaboration proposals are routed to ${COLLABORATION_EMAIL} and notified to ${ADMIN_NOTIFICATION_EMAIL}.`
+    }
+  });
+});
+
+// Outbound Contact / Collaboration Transmission Endpoint
+app.post("/api/emails/send-transmission", async (req, res) => {
+  try {
+    const { name, email, department, subject, message } = req.body || {};
+    if (!name || !email || !message) {
+      return res.status(400).json({ error: "Name, email, and message are required." });
+    }
+
+    const result = await sendContactTransmission({
+      name: String(name).trim(),
+      email: String(email).trim(),
+      department: String(department || "General Inquiries").trim(),
+      subject: String(subject || "New Transmission").trim(),
+      message: String(message).trim()
+    });
+
+    res.json({
+      success: true,
+      transmissionRef: result.transmissionRef,
+      message: "Transmission successfully logged and dispatched."
+    });
+  } catch (err: any) {
+    console.error("[SEND TRANSMISSION ERROR]:", err);
+    res.status(500).json({ error: err.message || "Failed to dispatch transmission." });
+  }
+});
+
+// Outbound Custom Proposal & Collaboration Submission Endpoint
+app.post("/api/emails/send-proposal", async (req, res) => {
+  try {
+    const {
+      proposalRef,
+      proposerName,
+      organization,
+      email,
+      phone,
+      proposalType,
+      targetFragment,
+      mediaType,
+      projectTitle,
+      projectOverview,
+      distributionScope,
+      territory,
+      term,
+      budgetRange,
+      isCollaboration
+    } = req.body || {};
+
+    if (!proposerName || !email || !projectOverview) {
+      return res.status(400).json({ error: "Proposer name, email, and project overview are required." });
+    }
+
+    const result = await sendProposalEmailNotification({
+      proposalRef: proposalRef || `PROP-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
+      proposerName: String(proposerName).trim(),
+      organization: organization ? String(organization).trim() : undefined,
+      email: String(email).trim(),
+      phone: phone ? String(phone).trim() : undefined,
+      proposalType: String(proposalType || "Custom Clearance Proposal").trim(),
+      targetFragment: String(targetFragment || "11:11 PM").trim(),
+      mediaType: String(mediaType || "Media Production").trim(),
+      projectTitle: String(projectTitle || "Untitled Project").trim(),
+      projectOverview: String(projectOverview).trim(),
+      distributionScope: String(distributionScope || "Worldwide").trim(),
+      territory: String(territory || "Worldwide").trim(),
+      term: String(term || "Perpetuity").trim(),
+      budgetRange: String(budgetRange || "$1,000 – $5,000").trim(),
+      isCollaboration: Boolean(isCollaboration)
+    });
+
+    res.json({
+      success: true,
+      proposalRef: result.proposalRef,
+      message: "Proposal successfully dispatched to A&R and Rights Administration."
+    });
+  } catch (err: any) {
+    console.error("[SEND PROPOSAL ERROR]:", err);
+    res.status(500).json({ error: err.message || "Failed to dispatch proposal." });
+  }
+});
+
+// Official Resend Inbound Webhook Endpoint (Receives emails sent to your domain)
+app.post("/api/webhooks/resend-inbound", async (req, res) => {
+  try {
+    const payload = req.body;
+    // Resend Inbound webhook payload structure:
+    // { from, to, subject, text, html, headers, attachments, ... }
+    const fromAddr = payload.from || payload.sender || "unknown@remote.com";
+    const toAddr = payload.to || payload.recipient || "contact@theowlclock.io";
+    const subject = payload.subject || "(No Subject)";
+    const text = payload.text || "";
+    const html = payload.html || "";
+
+    const recorded = recordInboundEmail({
+      from: fromAddr,
+      to: toAddr,
+      subject,
+      text,
+      html,
+      headers: payload.headers,
+      attachments: payload.attachments,
+    });
+
+    if (!useMockDb && db) {
+      db.collection("emails").insertOne(recorded).catch((e: any) => console.error("Error inserting inbound email into Mongo:", e));
+    }
+
+    res.json({ success: true, id: recorded.id, message: "Inbound email received and registered." });
+  } catch (err: any) {
+    console.error("[INBOUND WEBHOOK ERROR]:", err);
+    res.status(500).json({ error: err.message || "Failed to process inbound email." });
+  }
+});
+
+// Manual / General Inbound Endpoint
+app.post("/api/emails/inbound", async (req, res) => {
+  try {
+    const { from, to, subject, text, html, replyTo } = req.body || {};
+    if (!from || !subject) {
+      return res.status(400).json({ error: "Fields 'from' and 'subject' are required." });
+    }
+
+    const recorded = recordInboundEmail({
+      from,
+      to: to || "contact@theowlclock.io",
+      subject,
+      text,
+      html,
+      replyTo
+    });
+
+    if (!useMockDb && db) {
+      db.collection("emails").insertOne(recorded).catch((e: any) => console.error("Error saving inbound email to DB:", e));
+    }
+
+    res.json({ success: true, email: recorded });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to record inbound email." });
+  }
+});
+
+// Universal Outbound Send Endpoint (Internal / Admin / Client)
+app.post("/api/emails/send", async (req, res) => {
+  try {
+    const { to, subject, html, text, from, replyTo, category } = req.body || {};
+    if (!to || !subject) {
+      return res.status(400).json({ error: "Fields 'to' and 'subject' are required." });
+    }
+
+    const result = await sendEmail({
+      to,
+      subject,
+      html,
+      text,
+      from,
+      replyTo,
+      category: category || "contact"
+    });
+
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to send email." });
+  }
+});
+
+// Inbound Email Inbox Endpoint (List all received emails)
+app.get("/api/emails/inbox", async (req, res) => {
+  try {
+    if (!useMockDb && db) {
+      const dbEmails = await db.collection("emails").find({ direction: "inbound" }).sort({ timestamp: -1 }).limit(100).toArray();
+      if (dbEmails.length > 0) {
+        return res.json({ success: true, emails: dbEmails });
+      }
+    }
+
+    const inMemoryInbound = inMemoryEmailStore.filter(e => e.direction === "inbound");
+    res.json({ success: true, emails: inMemoryInbound });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Outbound Email Outbox Endpoint (List all sent emails)
+app.get("/api/emails/outbox", async (req, res) => {
+  try {
+    if (!useMockDb && db) {
+      const dbEmails = await db.collection("emails").find({ direction: "outbound" }).sort({ timestamp: -1 }).limit(100).toArray();
+      if (dbEmails.length > 0) {
+        return res.json({ success: true, emails: dbEmails });
+      }
+    }
+
+    const inMemoryOutbound = inMemoryEmailStore.filter(e => e.direction === "outbound");
+    res.json({ success: true, emails: inMemoryOutbound });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Test Email Ping Endpoint (to test connection with Resend/Gmail)
+app.post("/api/emails/test", async (req, res) => {
+  try {
+    const targetEmail = req.body.to || ADMIN_NOTIFICATION_EMAIL;
+    const testResult = await sendEmail({
+      to: targetEmail,
+      subject: `[The Owl Clock] Email Connectivity Test (${new Date().toLocaleTimeString()})`,
+      html: `
+        <div style="font-family: monospace; background: #000; color: #FFF; padding: 20px; border: 1px solid #333;">
+          <h2 style="color: #D9D6CA;">THE OWL CLOCK &bull; RESEND TEST PING</h2>
+          <p>This confirms that your email dispatch pipeline is connected and operational.</p>
+          <p>Active Resend Provider: <strong>${resendClient ? "Connected" : "Sandbox / SMTP"}</strong></p>
+          <p>Collaboration Routing: <strong>${COLLABORATION_EMAIL}</strong></p>
+          <p>Admin Notification Inbox: <strong>${ADMIN_NOTIFICATION_EMAIL}</strong></p>
+          <p>Timestamp: ${new Date().toISOString()}</p>
+        </div>
+      `,
+      text: `The Owl Clock email connectivity test successful. Timestamp: ${new Date().toISOString()}`,
+      category: "system"
+    });
+
+    res.json({ success: true, ...testResult, target: targetEmail });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Authenticate session token middleware/helper
 async function getEmailFromToken(req: express.Request): Promise<string | null> {
@@ -1545,7 +1910,7 @@ app.post("/api/licenses/create", async (req, res) => {
 });
 
 // Pending transactions store to retrieve items on callback redirect
-const pendingTransactions = new Map<string, { email: string; items: any[]; billing?: any; reference?: string; amount?: number; orderId?: string }>();
+const pendingTransactions = new Map<string, { email: string; items: any[]; billing?: any; reference?: string; amount?: number; orderId?: string; planCode?: string; hostedId?: string }>();
 
 async function getPayPalAccessToken() {
   const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString("base64");
@@ -1572,144 +1937,115 @@ async function getPayPalAccessToken() {
   return data.access_token;
 }
 
-// 8. PayPal: Create Order Endpoint
+// 8. PayPal: Get Available Plans Endpoint
+app.get("/api/paypal/plans", (_req, res) => {
+  res.json({
+    success: true,
+    plans: PAYPAL_HOSTED_PLANS
+  });
+});
+
+// 8b. PayPal: Create Order Endpoint
 app.post("/api/paypal/create-order", async (req, res) => {
   try {
-    const { email, amount, items, billing, paymentId } = req.body || {};
+    const { email, amount, items, billing, paymentId, tierId, licenseCode, useRestApi } = req.body || {};
     const numericAmount = parseFloat(amount) || 150;
     const reference = `LMN-PP-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
 
-    const isTestOneDollar = numericAmount === 1 || 
-      paymentId === "EGWC37L2LBCAQ" ||
-      items?.some((i: any) => i.tierId === "test" || i.price === "$1" || i.price === "$1.00" || i.price === 1);
+    const targetPlan = resolvePayPalHostedPlan({ paymentId, tierId, licenseCode, amount: numericAmount, items });
+    const hostedPaymentUrl = targetPlan.url;
+    const hostedPaymentId = targetPlan.hostedId;
+    const hostedOrderId = `NCP-${hostedPaymentId}-${Date.now()}`;
 
-    const defaultHostedPaymentUrl = PAYPAL_HOSTED_PAYMENT_URL;
-
-    // If $1 testing is requested with Payment ID EGWC37L2LBCAQ, route to official hosted checkout
-    if (isTestOneDollar) {
-      const hostedPaymentUrl = defaultHostedPaymentUrl;
-      const testOrderId = `NCP-EGWC37L2LBCAQ-${Date.now()}`;
-
-      pendingTransactions.set(testOrderId, { email, items, billing, reference, amount: 1.00 });
-      pendingTransactions.set(reference, { email, items, billing, reference, amount: 1.00, orderId: testOrderId });
-      pendingTransactions.set("EGWC37L2LBCAQ", { email, items, billing, reference, amount: 1.00, orderId: testOrderId });
-
-      console.log(`[PAYPAL $1 TEST ACTIVE] Routing to live PayPal Hosted Payment ID: EGWC37L2LBCAQ -> ${hostedPaymentUrl}`);
-
-      return res.json({
-        success: true,
-        orderID: testOrderId,
-        reference,
-        paymentId: "EGWC37L2LBCAQ",
-        approveUrl: hostedPaymentUrl,
-        isTest: true,
-        isMock: false,
-        message: "Routed to official $1 test payment portal (EGWC37L2LBCAQ)."
-      });
-    }
-
-    try {
-      const accessToken = await getPayPalAccessToken();
-      const proto = (req.headers["x-forwarded-proto"] as string) || req.protocol || "https";
-      const host = req.get("host") || "sonic-archive-ef97.vercel.app";
-      const fallbackOrigin = `${proto}://${host}`;
-      const baseAppUrl = (process.env.APP_URL || (host.includes("localhost") ? fallbackOrigin : "https://sonic-archive-ef97.vercel.app")).replace(/\/$/, "");
-      const returnUrl = `${baseAppUrl}/api/paypal/return`;
-      const cancelUrl = `${baseAppUrl}/checkout?status=cancel`;
-
-      const response = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-          "Prefer": "return=representation"
-        },
-        body: JSON.stringify({
-          intent: "CAPTURE",
-          purchase_units: [
-            {
-              reference_id: reference,
-              amount: {
-                currency_code: "USD",
-                value: numericAmount.toFixed(2)
-              },
-              description: `LOMON Archive clearance for ${items?.length || 1} Fragment(s)`
-            }
-          ],
-          application_context: {
-            brand_name: "LOMON LLC / THE OWL CLOCK",
-            landing_page: "NO_PREFERENCE",
-            user_action: "PAY_NOW",
-            return_url: returnUrl,
-            cancel_url: cancelUrl
-          }
-        })
-      });
-
-      const rawOrderText = await response.text();
-      let orderData: any = {};
+    // If client requested REST API flow explicitly and live keys are set, try it; otherwise use the official PayPal hosted live link
+    if (useRestApi && process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET) {
       try {
-        orderData = JSON.parse(rawOrderText);
-      } catch (_e) {
-        throw new Error(`PayPal Orders gateway error (${response.status}): ${rawOrderText.substring(0, 120)}`);
-      }
+        const accessToken = await getPayPalAccessToken();
+        const proto = (req.headers["x-forwarded-proto"] as string) || req.protocol || "https";
+        const host = req.get("host") || "sonic-archive-ef97.vercel.app";
+        const fallbackOrigin = `${proto}://${host}`;
+        const baseAppUrl = (process.env.APP_URL || (host.includes("localhost") ? fallbackOrigin : "https://sonic-archive-ef97.vercel.app")).replace(/\/$/, "");
+        const returnUrl = `${baseAppUrl}/api/paypal/return`;
+        const cancelUrl = `${baseAppUrl}/checkout?status=cancel`;
 
-      if (!response.ok) {
-        throw new Error(orderData.message || orderData.details?.[0]?.issue || "Failed to create PayPal order.");
-      }
-
-      // Store pending order details
-      pendingTransactions.set(orderData.id, { email, items, billing, reference, amount: numericAmount });
-      if (reference) {
-        pendingTransactions.set(reference, { email, items, billing, reference, amount: numericAmount, orderId: orderData.id });
-      }
-
-      const approveLink = orderData.links?.find((link: any) => link.rel === "approve")?.href;
-
-      res.json({
-        success: true,
-        orderID: orderData.id,
-        reference,
-        approveUrl: approveLink,
-        isMock: false
-      });
-    } catch (paypalError: any) {
-      console.warn("[PAYPAL SDK NOTICE]:", paypalError.message);
-      
-      // On live / production, or if PayPal REST credentials aren't active with live keys,
-      // route the customer directly to the official PayPal payment portal (EGWC37L2LBCAQ)
-      // so payment is actually made on PayPal rather than being stuck on an internal mock screen!
-      if (isLivePayPal || process.env.NODE_ENV === "production" || defaultHostedPaymentUrl) {
-        console.log(`[PAYPAL LIVE ROUTE] Directing customer to real PayPal checkout portal: ${defaultHostedPaymentUrl}`);
-        const hostedOrderId = `NCP-PAYPAL-${Date.now()}`;
-        pendingTransactions.set(hostedOrderId, { email, items, billing, reference, amount: numericAmount });
-        pendingTransactions.set(reference, { email, items, billing, reference, amount: numericAmount, orderId: hostedOrderId });
-        pendingTransactions.set("EGWC37L2LBCAQ", { email, items, billing, reference, amount: numericAmount, orderId: hostedOrderId });
-
-        return res.json({
-          success: true,
-          orderID: hostedOrderId,
-          reference,
-          paymentId: "EGWC37L2LBCAQ",
-          approveUrl: defaultHostedPaymentUrl,
-          isMock: false,
-          isHosted: true,
-          message: "Securely routed to PayPal checkout portal."
+        const response = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+            "Prefer": "return=representation"
+          },
+          body: JSON.stringify({
+            intent: "CAPTURE",
+            purchase_units: [
+              {
+                reference_id: reference,
+                amount: {
+                  currency_code: "USD",
+                  value: numericAmount.toFixed(2)
+                },
+                description: `LOMON Archive clearance [${targetPlan.code}] for ${items?.length || 1} Fragment(s)`
+              }
+            ],
+            application_context: {
+              brand_name: "LOMON LLC / THE OWL CLOCK",
+              landing_page: "NO_PREFERENCE",
+              user_action: "PAY_NOW",
+              return_url: returnUrl,
+              cancel_url: cancelUrl
+            }
+          })
         });
+
+        const rawOrderText = await response.text();
+        let orderData: any = {};
+        try {
+          orderData = JSON.parse(rawOrderText);
+        } catch (_e) {
+          throw new Error(`PayPal Orders gateway error (${response.status}): ${rawOrderText.substring(0, 120)}`);
+        }
+
+        if (response.ok && orderData.id) {
+          pendingTransactions.set(orderData.id, { email, items, billing, reference, amount: numericAmount, planCode: targetPlan.code, hostedId: hostedPaymentId });
+          if (reference) {
+            pendingTransactions.set(reference, { email, items, billing, reference, amount: numericAmount, orderId: orderData.id, planCode: targetPlan.code, hostedId: hostedPaymentId });
+          }
+
+          const approveLink = orderData.links?.find((link: any) => link.rel === "approve")?.href;
+          return res.json({
+            success: true,
+            orderID: orderData.id,
+            reference,
+            planCode: targetPlan.code,
+            paymentId: hostedPaymentId,
+            approveUrl: approveLink,
+            isMock: false
+          });
+        }
+      } catch (restErr: any) {
+        console.warn("[PAYPAL REST NOTICE - Falling back to Hosted Portal]:", restErr.message);
       }
-
-      pendingTransactions.set(reference, { email, items, billing, reference, amount: numericAmount });
-      const mockToken = `SANDBOX-${reference}`;
-      pendingTransactions.set(mockToken, { email, items, billing, reference, amount: numericAmount });
-
-      res.json({
-        success: true,
-        orderID: mockToken,
-        reference,
-        approveUrl: `/mock-paypal-checkout?token=${mockToken}&reference=${reference}&amount=${numericAmount}&email=${encodeURIComponent(email || "guest@lomon.local")}`,
-        isMock: true
-      });
     }
+
+    // Default & primary flow: Route directly to official PayPal Hosted Payment link for this plan
+    pendingTransactions.set(hostedOrderId, { email, items, billing, reference, amount: numericAmount, planCode: targetPlan.code, hostedId: hostedPaymentId });
+    pendingTransactions.set(reference, { email, items, billing, reference, amount: numericAmount, orderId: hostedOrderId, planCode: targetPlan.code, hostedId: hostedPaymentId });
+    pendingTransactions.set(hostedPaymentId, { email, items, billing, reference, amount: numericAmount, orderId: hostedOrderId, planCode: targetPlan.code, hostedId: hostedPaymentId });
+
+    console.log(`[PAYPAL ORDER CREATED] Plan: ${targetPlan.code} (${targetPlan.title}), Hosted ID: ${hostedPaymentId}, URL: ${hostedPaymentUrl}`);
+
+    return res.json({
+      success: true,
+      orderID: hostedOrderId,
+      reference,
+      planCode: targetPlan.code,
+      planTitle: targetPlan.title,
+      paymentId: hostedPaymentId,
+      approveUrl: hostedPaymentUrl,
+      isHosted: true,
+      isMock: false,
+      message: `Routed to official ${targetPlan.title} checkout portal (${hostedPaymentId}).`
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to initialize PayPal transaction." });
   }
@@ -1725,40 +2061,54 @@ function createLicenseDataHelper(item: any, dbEmail: string, legalName: string, 
   
   const fragMatch = mockFragments.find(f => f.id === rawId || f.name === item.name || f.timestamp === item.name);
 
-  let tierTitle = item.tierTitle || "Archive Access License ($150 USD)";
+  let tierTitle = "Archive Access License [TOC-AAL] ($150 USD)";
   let feeFormatted = item.price || "$150 USD";
   let feeAmount = 150;
   let permittedUsage = "Single Commercial Audio Release (Digital & Physical)";
   let streamingLimit = "100,000 Cumulative Audio Streams / 2,000 Sales";
   let composerSplits = "50% Christopher Solomon Paul (BMI 01305977829) / 50% Licensee";
 
-  if (tierId === "test" || tierId.includes("test") || item.price === "$1" || item.price === "$1.00" || feeAmount === 1) {
-    tierTitle = "Archive $1 Test License ($1.00 USD)";
-    feeFormatted = "$1.00 USD";
-    feeAmount = 1;
-    permittedUsage = "Testing Dynamic License Generation (PayPal Payment ID: EGWC37L2LBCAQ)";
-    streamingLimit = "10,000 Test Streams / System Verification";
-    composerSplits = "50% Christopher Solomon Paul (BMI 01305977829) / 50% Licensee";
-  } else if (tierId.includes("exclusive") || tierId === "exclusive" || tierId === "ex") {
-    tierTitle = "Exclusive Archive Acquisition ($5,000 USD)";
+  if (tierId.includes("exclusive") || tierId === "exclusive" || tierId === "ex" || tierId === "eaa" || item.price === "$5,000" || item.price === "$5000") {
+    tierTitle = "Exclusive Archive Acquisition [TOC-EAA] ($5,000 USD)";
     feeFormatted = "$5,000.00 USD";
     feeAmount = 5000;
     permittedUsage = "Sole Exclusive Master Acquisition, Permanent Archive De-listing & Unlimited Exploitation";
     streamingLimit = "Unlimited Streams, Broadcasts, and Physical/Digital Copies";
     composerSplits = "100% Exclusive Master Rights Transferred / 50% Underlying Composition Share";
-  } else if (tierId.includes("commercial") || tierId === "commercial" || tierId === "cx") {
-    tierTitle = "Commercial Exploitation ($1,000 USD)";
+  } else if (tierId.includes("commercial") || tierId.includes("exploit") || tierId === "cx" || tierId === "cel" || item.price === "$1,000" || item.price === "$1000") {
+    tierTitle = "Commercial Exploitation License [TOC-CEL] ($1,000 USD)";
     feeFormatted = "$1,000.00 USD";
     feeAmount = 1000;
     permittedUsage = "Full Commercial Synchronization, Global Broadcast, Paid Advertising & Film/TV";
     streamingLimit = "1,000,000 Cumulative Audio Streams / Unlimited Broadcast Impressions";
     composerSplits = "50% Christopher Solomon Paul (BMI 01305977829) / 50% Licensee";
-  } else if (tierId.includes("release") || tierId === "release" || tierId === "cr") {
-    tierTitle = "Commercial Release ($500 USD)";
+  } else if (tierId.includes("release") || tierId === "cr" || tierId === "crl" || item.price === "$500") {
+    tierTitle = "Commercial Release License [TOC-CRL] ($500 USD)";
     feeFormatted = "$500.00 USD";
     feeAmount = 500;
     permittedUsage = "Commercial Record Release, DSPs, Official Music Video & Radio";
     streamingLimit = "500,000 Cumulative Audio Streams / 10,000 Sales";
+    composerSplits = "50% Christopher Solomon Paul (BMI 01305977829) / 50% Licensee";
+  } else if (tierId.includes("sync") || tierId === "sml") {
+    tierTitle = "Synchronization and Master License [TOC-SML]";
+    feeFormatted = "CUSTOM PROPOSAL";
+    feeAmount = 0;
+    permittedUsage = "Film, Television, Advertising, Brand Campaigns, Games, and Broadcast Media";
+    streamingLimit = "Per Approved Media Schedule";
+    composerSplits = "Negotiated Per Project";
+  } else if (tierId.includes("collab") || tierId === "pcol") {
+    tierTitle = "Producer Collaboration [TOC-PCOL]";
+    feeFormatted = "COLLABORATION";
+    feeAmount = 0;
+    permittedUsage = "Collaborative Production & Commercial Release per Individual Agreement";
+    streamingLimit = "Per Agreement";
+    composerSplits = "50% Christopher Solomon Paul (BMI 01305977829) / 50% Licensee";
+  } else {
+    tierTitle = "Archive Access License [TOC-AAL] ($150 USD)";
+    feeFormatted = "$150.00 USD";
+    feeAmount = 150;
+    permittedUsage = "Single Commercial Audio Release (Digital & Physical)";
+    streamingLimit = "100,000 Cumulative Audio Streams / 2,000 Sales";
     composerSplits = "50% Christopher Solomon Paul (BMI 01305977829) / 50% Licensee";
   }
 
@@ -1789,7 +2139,7 @@ function createLicenseDataHelper(item: any, dbEmail: string, legalName: string, 
     licenseeEmail: dbEmail,
     licenseeAddress: licenseeAddress,
     licensor: "LOMON LLC / The Owl Clock",
-    licensorEmail: "licensing@theowlclock.com",
+    licensorEmail: "licensing@theowlclock.io",
     licensorOrganization: "LOMON LLC (d/b/a The Owl Clock)",
     legalContactName: "Christopher Solomon Paul",
     producerCredit: "Produced by Lomon Christopher / The Owl Clock",
@@ -1819,8 +2169,8 @@ function createLicenseDataHelper(item: any, dbEmail: string, legalName: string, 
 // 9. PayPal: Capture Order Endpoint & Auto-grant License
 app.post("/api/paypal/capture-order", async (req, res) => {
   try {
-    const { orderID, reference, email, items, billing } = req.body;
-    const targetToken = orderID || reference;
+    const { orderID, reference, email, items, billing, planCode, paymentId } = req.body;
+    const targetToken = orderID || reference || paymentId;
     if (!targetToken) {
       return res.status(400).json({ error: "orderID or reference is required." });
     }
@@ -1829,13 +2179,24 @@ app.post("/api/paypal/capture-order", async (req, res) => {
     let actualAmount = 150;
     let transactionRef = targetToken;
 
-    const isTestPaymentId = targetToken.includes("EGWC37L2LBCAQ") || targetToken === "EGWC37L2LBCAQ" || targetToken.startsWith("NCP-");
+    const knownHostedIds = [
+      "CFHDJFEV6Y7WJ", // TOC-AAL ($150)
+      "D7BRUR9T5CPNA", // TOC-CRL ($500)
+      "KKUAY9LJHBKCE", // TOC-CEL ($1000)
+      "MLHYEFHQY8494", // TOC-SML
+      "KCXV2FHADXRDL", // TOC-EAA ($5000)
+      "UZY4LJVGTHQC4", // TOC-PCOL
+      "EGWC37L2LBCAQ"
+    ];
 
-    if (isTestPaymentId) {
+    const isHostedPaymentId = knownHostedIds.some(hid => targetToken.includes(hid)) || targetToken.startsWith("NCP-");
+
+    if (isHostedPaymentId) {
       paymentVerified = true;
-      const pending = pendingTransactions.get(targetToken) || pendingTransactions.get(reference) || pendingTransactions.get("EGWC37L2LBCAQ");
-      actualAmount = pending?.amount || parseFloat(req.body.amount) || 1.00;
-      transactionRef = targetToken.includes("EGWC37L2LBCAQ") ? targetToken : `PP-EGWC37L2LBCAQ-${Date.now()}`;
+      const pending = pendingTransactions.get(targetToken) || pendingTransactions.get(reference);
+      const matchedPlan = resolvePayPalHostedPlan({ paymentId: targetToken, licenseCode: planCode, amount: pending?.amount || parseFloat(req.body.amount), items });
+      actualAmount = pending?.amount || parseFloat(req.body.amount) || matchedPlan.price || 150.00;
+      transactionRef = targetToken.startsWith("NCP-") ? targetToken : `PP-${targetToken}-${Date.now()}`;
     } else if (!isLivePayPal && targetToken.startsWith("SANDBOX-")) {
       paymentVerified = true;
       const pending = pendingTransactions.get(targetToken) || pendingTransactions.get(reference);
@@ -3094,9 +3455,9 @@ app.post(
   async (req, res) => {
     let targetObjectKey = "";
     try {
-      const { filename, contentType, fileType, objectKey: customKey, folder, fragmentId, sizeBytes, size } = req.body || {};
+      const { filename, contentType, fileType, objectKey: customKey, folder, fragmentId, sizeBytes, size, fileSize: inputSize } = req.body || {};
       const mimeType = contentType || fileType || "application/octet-stream";
-      const fileSize = Number(sizeBytes || size || 0);
+      const fileSize = Number(sizeBytes || size || inputSize || 0);
 
       // Validate single file size up to 200MB
       if (fileSize > MAX_UPLOAD_SIZE_BYTES) {
@@ -3658,6 +4019,11 @@ app.post("/api/upload/cloudinary", upload.single("file") as any, async (req, res
 // --- VITE MIDDLEWARE SETUP ---
 async function startServer() {
   await initializeDatabase();
+
+  // Auto-verify and enforce wildcard CORS rules on Cloudflare R2 bucket for direct browser uploads
+  configureR2BucketCors().catch(err => {
+    console.warn("[CLOUDFLARE R2 CORS NOTICE] Background check:", err.message);
+  });
 
   if (process.env.NODE_ENV !== "production") {
     console.log("[SERVER] Mounting Vite in development middleware mode...");

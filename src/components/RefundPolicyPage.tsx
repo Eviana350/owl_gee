@@ -66,7 +66,7 @@ export default function RefundPolicyPage({ onBack }: RefundPolicyPageProps) {
           </div>
 
           <p className="text-[13px] leading-relaxed text-zinc-300 pt-2">
-            This Refund Policy explains when refunds, cancellations, credits, exchanges, and payment disputes may apply to purchases made through <strong className="text-white">theowlclock.com</strong>.
+            This Refund Policy explains when refunds, cancellations, credits, exchanges, and payment disputes may apply to purchases made through <strong className="text-white">theowlclock.io</strong>.
           </p>
 
           <div className="p-4 bg-zinc-950 border border-zinc-900 text-[11.5px] text-zinc-400 leading-relaxed space-y-2 rounded-sm">
@@ -395,8 +395,8 @@ export default function RefundPolicyPage({ onBack }: RefundPolicyPageProps) {
             </ul>
             <p className="text-[12.5px] text-zinc-400 pt-1">Refund requests should be sent to:</p>
             <div className="p-3 bg-zinc-950 border border-zinc-900 rounded-sm w-fit font-mono text-[12px]">
-              <a href="mailto:licensing@theowlclock.com" className="text-zinc-200 hover:text-white underline">
-                licensing@theowlclock.com
+              <a href="mailto:licensing@theowlclock.io" className="text-zinc-200 hover:text-white underline">
+                licensing@theowlclock.io
               </a>
             </div>
           </section>
@@ -461,18 +461,18 @@ export default function RefundPolicyPage({ onBack }: RefundPolicyPageProps) {
 
               <div className="pt-2 border-t border-zinc-900 flex flex-wrap items-center gap-4">
                 <a
-                  href="mailto:support@theowlclock.com"
+                  href="mailto:support@theowlclock.io"
                   className="inline-flex items-center gap-2 text-zinc-200 hover:text-white transition-colors cursor-pointer font-mono font-bold"
                 >
                   <Mail size={13} className="text-zinc-400" />
-                  <span>support@theowlclock.com</span>
+                  <span>support@theowlclock.io</span>
                 </a>
                 <a
-                  href="mailto:licensing@theowlclock.com"
+                  href="mailto:licensing@theowlclock.io"
                   className="inline-flex items-center gap-2 text-zinc-200 hover:text-white transition-colors cursor-pointer font-mono font-bold"
                 >
                   <Mail size={13} className="text-zinc-400" />
-                  <span>licensing@theowlclock.com</span>
+                  <span>licensing@theowlclock.io</span>
                 </a>
               </div>
             </div>

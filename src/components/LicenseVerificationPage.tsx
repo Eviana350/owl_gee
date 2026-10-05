@@ -27,10 +27,10 @@ export default function LicenseVerificationPage({
     { number: "TOC-AA-2026-84920", label: "Archive Access ($150)", type: "purchased" },
     { number: "TOC-CX-2026-77102", label: "Commercial Exploitation ($1,000)", type: "purchased" },
     { number: "TOC-SYNC-2026-00482", label: "Synchronization & Master", type: "purchased" },
-    { number: "07:15 AM", label: "Master Fragment (Unlicensed)", type: "unpurchased" },
+    { number: "11:11 PM", label: "Master Fragment (Unlicensed)", type: "unpurchased" },
     { number: "9:41 PM", label: "Master Fragment (Unlicensed)", type: "unpurchased" },
     { number: "10:00 PM", label: "Master Fragment (Unlicensed)", type: "unpurchased" },
-    { number: "TOC-FRAG-0217", label: "Unpurchased Fragment ID", type: "unpurchased" }
+    { number: "3:21 PM", label: "Master Fragment (Unlicensed)", type: "unpurchased" }
   ];
 
   const performVerification = async (targetNumber: string) => {
@@ -114,7 +114,7 @@ export default function LicenseVerificationPage({
   };
 
   const handleActionClearance = () => {
-    const target = searchResult?.fragment || searchResult?.fragmentId || searchInput || "07:15 AM";
+    const target = searchResult?.fragment || searchResult?.fragmentId || searchInput || "11:11 PM";
     if (onRequestClearance) {
       onRequestClearance(target);
     } else {
@@ -177,7 +177,7 @@ export default function LicenseVerificationPage({
                 type="text"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Enter License Key or Fragment ID (e.g. TOC-CR-2026-30192 or 07:15 AM)"
+                placeholder="Enter License Key or Fragment ID (e.g. TOC-CR-2026-30192 or 11:11 PM)"
                 className="w-full bg-black border border-zinc-800 focus:border-[#D9D6CA] pl-10 pr-4 py-3 text-xs sm:text-sm font-mono text-white placeholder-zinc-700 uppercase focus:outline-none transition-all rounded-sm"
               />
             </div>
@@ -260,7 +260,7 @@ export default function LicenseVerificationPage({
             </div>
 
             <p className="text-zinc-300 text-xs sm:text-sm font-sans leading-relaxed">
-              Enter any valid <strong>License Key</strong> (e.g. <code className="text-[#D9D6CA]">TOC-CR-2026-30192</code>) to view the buyer's active scope of rights and clearance terms, or search any <strong>Fragment ID / Timestamp</strong> (e.g. <code className="text-[#D9D6CA]">07:15 AM</code>) to query the official Master Archive Registry and initiate direct clearance.
+              Enter any valid <strong>License Key</strong> (e.g. <code className="text-[#D9D6CA]">TOC-CR-2026-30192</code>) to view the buyer's active scope of rights and clearance terms, or search any <strong>Fragment ID / Timestamp</strong> (e.g. <code className="text-[#D9D6CA]">11:11 PM</code>) to query the official Master Archive Registry and initiate direct clearance.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2 font-mono text-[10.5px]">
@@ -617,7 +617,7 @@ export default function LicenseVerificationPage({
             </p>
 
             <div className="text-[10px] text-zinc-500 font-mono space-y-1 pt-2">
-              <p>• Check that the license key is formatted correctly (e.g. TOC-CR-2026-30192) or enter a Fragment ID (e.g. 07:15 AM).</p>
+              <p>• Check that the license key is formatted correctly (e.g. TOC-CR-2026-30192) or enter a Fragment ID (e.g. 11:11 PM).</p>
               <p>• Unregistered license numbers offer no legal clearance for commercial use.</p>
             </div>
           </motion.div>

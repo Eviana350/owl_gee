@@ -2130,15 +2130,19 @@ export default function App() {
                 </div>
 
                 {/* BOTTOM FOOTER LINE */}
-                <div className="text-center max-w-4xl mx-auto w-full border-t border-zinc-900/60 pt-10 pb-8 flex flex-col items-center justify-center gap-2 select-none">
+                <div className="text-center max-w-4xl mx-auto w-full border-t border-zinc-900/60 pt-10 pb-8 flex flex-col items-center justify-center gap-1.5 select-none">
                   <h6 className="text-white font-sans font-medium text-sm sm:text-base tracking-[0.28em] uppercase">
-                    THE OWL CLOCK
+                    The Owl Clock
                   </h6>
-                  <div className="inline-flex items-center justify-center gap-2.5 px-4 py-1 rounded-full bg-zinc-900/70 border border-zinc-800/60 font-mono text-[10px] sm:text-[11px] text-zinc-400 tracking-[0.2em] uppercase">
-                    <span>ATLANTA, GA</span>
-                    <span className="text-zinc-600">•</span>
-                    <span>© 2026</span>
-                  </div>
+                  <p className="text-zinc-400 font-mono text-xs uppercase tracking-wider">
+                    Publishing • Rights Management • Licensing
+                  </p>
+                  <p className="text-zinc-500 font-mono text-xs uppercase tracking-wider">
+                    Atlanta, Georgia
+                  </p>
+                  <p className="text-zinc-600 font-mono text-[11px] uppercase tracking-wider">
+                    © 2026 LOMON LLC
+                  </p>
                 </div>
               </footer>
             )}
@@ -2189,13 +2193,19 @@ export default function App() {
                               </h5>
                               <span className="text-zinc-500 text-[9px] font-mono tracking-widest mt-1 uppercase">
                                 TRACK • {
-                                  item.tierId === "test" || item.price === "$1" || item.price === "$1.00"
-                                    ? "ARCHIVE $1 TEST CLEARANCE (PAYPAL EGWC37L2LBCAQ)"
-                                    : item.tierId === "access" || item.price === "$150" || item.price === "$150.00"
-                                    ? "ARCHIVE ACCESS LICENSE (MP3, WAV)"
+                                  item.tierId === "access" || item.price === "$150" || item.price === "$150.00"
+                                    ? "ARCHIVE ACCESS LICENSE [TOC-AAL] (WAV, MP3)"
                                     : item.tierId === "release" || item.price === "$500" || item.price === "$500.00"
-                                    ? "COMMERCIAL RELEASE LICENSE (WAV, MP3)"
-                                    : "COMMERCIAL LICENSE (STEMS, WAV, MP3)"
+                                    ? "COMMERCIAL RELEASE LICENSE [TOC-CRL] (WAV, MP3)"
+                                    : item.tierId === "commercial" || item.price === "$1,000" || item.price === "$1000"
+                                    ? "COMMERCIAL EXPLOITATION LICENSE [TOC-CEL] (STEMS, WAV, MP3)"
+                                    : item.tierId === "exclusive" || item.price === "$5,000" || item.price === "$5000"
+                                    ? "EXCLUSIVE ARCHIVE ACQUISITION [TOC-EAA] (MASTER & STEMS)"
+                                    : item.tierId === "sync"
+                                    ? "SYNCHRONIZATION & MASTER LICENSE [TOC-SML]"
+                                    : item.tierId === "collaboration"
+                                    ? "PRODUCER COLLABORATION [TOC-PCOL]"
+                                    : "COMMERCIAL LICENSE [TOC-AAL] (WAV, MP3)"
                                 }
                               </span>
                             </div>

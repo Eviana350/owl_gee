@@ -126,7 +126,7 @@ export default function CookiePolicyPage({ onBack, onOpenPrivacy }: CookiePolicy
           </div>
 
           <p className="text-[12.5px] sm:text-[13px] leading-relaxed text-zinc-300 pt-1 sm:pt-2 break-words">
-            This Cookie Policy explains how <strong className="text-white">LOMON LLC</strong> uses cookies, local storage, and session identifiers on <strong className="text-white">theowlclock.com</strong> to maintain active audio playback loops, save clearance cart items, remember age portal access, and secure transaction gateways.
+            This Cookie Policy explains how <strong className="text-white">LOMON LLC</strong> uses cookies, local storage, and session identifiers on <strong className="text-white">theowlclock.io</strong> to maintain active audio playback loops, save clearance cart items, remember age portal access, and secure transaction gateways.
           </p>
         </div>
 

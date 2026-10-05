@@ -67,7 +67,7 @@ export default function PrivacyPolicyPage({ onBack, onOpenCookies }: PrivacyPoli
           </div>
 
           <p className="text-[13px] leading-relaxed text-zinc-300 pt-2">
-            This Privacy Policy explains how <strong className="text-white">LOMON LLC</strong>, operating as <strong className="text-white">The Owl Clock</strong>, collects, uses, stores, discloses, and protects personal information when you access or use <strong className="text-white">theowlclock.com</strong>, submit a clearance request, purchase a License, communicate with us, or otherwise interact with the Archive.
+            This Privacy Policy explains how <strong className="text-white">LOMON LLC</strong>, operating as <strong className="text-white">The Owl Clock</strong>, collects, uses, stores, discloses, and protects personal information when you access or use <strong className="text-white">theowlclock.io</strong>, submit a clearance request, purchase a License, communicate with us, or otherwise interact with the Archive.
           </p>
 
           <div className="p-4 bg-zinc-950 border border-zinc-900 text-[11.5px] text-zinc-400 leading-relaxed space-y-2 rounded-sm">
@@ -601,7 +601,7 @@ export default function PrivacyPolicyPage({ onBack, onOpenCookies }: PrivacyPoli
               These measures may include access controls, secure hosting, restricted permissions, authentication procedures, encryption where appropriate, monitoring, backups, and vendor-management practices. No system, transmission method, or storage service can be guaranteed to be completely secure.
             </p>
             <p className="text-[12.5px] text-zinc-200">
-              You are responsible for protecting your account credentials, devices, files, and communications. Report suspected unauthorized account activity to <a href="mailto:support@theowlclock.com" className="text-white underline">support@theowlclock.com</a>.
+              You are responsible for protecting your account credentials, devices, files, and communications. Report suspected unauthorized account activity to <a href="mailto:support@theowlclock.io" className="text-white underline">support@theowlclock.io</a>.
             </p>
           </section>
 
@@ -656,8 +656,8 @@ export default function PrivacyPolicyPage({ onBack, onOpenCookies }: PrivacyPoli
             <p>To submit a privacy request, contact:</p>
             <div className="p-3.5 bg-zinc-950 border border-zinc-900 rounded-sm font-mono text-[12px] space-y-1">
               <p className="text-white font-bold">LOMON LLC PRIVACY DEPARTMENT</p>
-              <a href="mailto:legal@theowlclock.com" className="text-zinc-200 hover:text-white underline block">
-                legal@theowlclock.com
+              <a href="mailto:legal@theowlclock.io" className="text-zinc-200 hover:text-white underline block">
+                legal@theowlclock.io
               </a>
             </div>
             <p className="text-[12.5px] text-zinc-400 pt-1">Your request should include:</p>
@@ -682,7 +682,7 @@ export default function PrivacyPolicyPage({ onBack, onOpenCookies }: PrivacyPoli
               We do not knowingly request or collect personal information directly from children under thirteen. A person under the legal age of majority may purchase a License or enter into an agreement only with the involvement and authorization of a parent or legal guardian.
             </p>
             <p className="text-[12.5px] text-zinc-400">
-              If we learn that personal information was collected directly from a child under thirteen without appropriate authorization, we will take reasonable steps to delete it. A parent or legal guardian who believes a child has submitted personal information may contact <a href="mailto:legal@theowlclock.com" className="text-white underline">legal@theowlclock.com</a>.
+              If we learn that personal information was collected directly from a child under thirteen without appropriate authorization, we will take reasonable steps to delete it. A parent or legal guardian who believes a child has submitted personal information may contact <a href="mailto:legal@theowlclock.io" className="text-white underline">legal@theowlclock.io</a>.
             </p>
             <p className="text-[12.5px] text-zinc-400 italic">
               United States federal children’s privacy requirements apply to child-directed online services and to general-audience services that knowingly collect personal information from children under thirteen.
@@ -794,26 +794,26 @@ export default function PrivacyPolicyPage({ onBack, onOpenCookies }: PrivacyPoli
 
               <div className="pt-2 border-t border-zinc-900 flex flex-wrap items-center gap-4">
                 <a
-                  href="mailto:legal@theowlclock.com"
+                  href="mailto:legal@theowlclock.io"
                   className="inline-flex items-center gap-2 text-zinc-200 hover:text-white transition-colors cursor-pointer font-mono font-bold"
                 >
                   <Mail size={13} className="text-zinc-400" />
-                  <span>legal@theowlclock.com</span>
+                  <span>legal@theowlclock.io</span>
                 </a>
                 <a
-                  href="mailto:contact@theowlclock.com"
+                  href="mailto:contact@theowlclock.io"
                   className="inline-flex items-center gap-2 text-zinc-200 hover:text-white transition-colors cursor-pointer font-mono font-bold"
                 >
                   <Mail size={13} className="text-zinc-400" />
-                  <span>contact@theowlclock.com</span>
+                  <span>contact@theowlclock.io</span>
                 </a>
                 <a
-                  href="https://theowlclock.com"
+                  href="https://theowlclock.io"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-zinc-400 hover:text-white font-mono text-[11px]"
                 >
-                  theowlclock.com
+                  theowlclock.io
                 </a>
               </div>
             </div>

@@ -289,7 +289,8 @@ export default function OwlClock({
       { mappedId: "01:16", hour: 1, minute: 16, ampm: "AM" as const, totalMinutes: 76, label: "01:16 AM", rawFragment: FRAGMENTS.find(f => f.id === "01:16") || FRAGMENTS[3] },
       { mappedId: "03:21", hour: 3, minute: 21, ampm: "PM" as const, totalMinutes: 921, label: "03:21 PM", rawFragment: FRAGMENTS.find(f => f.id === "03:21") || FRAGMENTS[0] },
       { mappedId: "09:41", hour: 9, minute: 41, ampm: "PM" as const, totalMinutes: 1301, label: "09:41 PM", rawFragment: FRAGMENTS.find(f => f.id === "09:41") || FRAGMENTS[1] },
-      { mappedId: "10:00", hour: 10, minute: 0, ampm: "PM" as const, totalMinutes: 1320, label: "10:00 PM", rawFragment: FRAGMENTS.find(f => f.id === "10:00") || FRAGMENTS[2] }
+      { mappedId: "10:00", hour: 10, minute: 0, ampm: "PM" as const, totalMinutes: 1320, label: "10:00 PM", rawFragment: FRAGMENTS.find(f => f.id === "10:00") || FRAGMENTS[2] },
+      { mappedId: "11:11", hour: 11, minute: 11, ampm: "PM" as const, totalMinutes: 1391, label: "11:11 PM", rawFragment: FRAGMENTS.find(f => f.id === "11:11") || FRAGMENTS[4] }
     ];
   }, [fragments]);
 
@@ -337,59 +338,55 @@ export default function OwlClock({
 
   const CONTRACT_TIERS = [
     { 
-      id: "test", 
-      title: "Archive $1 Test License", 
-      price: "$1", 
-      subtitle: "Testing dynamic license generation & payment pipeline ($1.00 USD).", 
-      description: "Testing Dynamic License Generation via PayPal Payment ID: EGWC37L2LBCAQ.",
-      usageTerms: [
-        "Live PayPal Payment ID: EGWC37L2LBCAQ",
-        "Dynamic License Generation Verification",
-        "High-Resolution Master WAV",
-        "Clearance Certificate & Legal Agreement",
-        "Instant Repository Provisioning"
-      ],
-      buttonText: "TEST CLEARANCE — $1"
-    },
-    { 
       id: "access", 
+      code: "TOC-AAL",
       title: "Archive Access License", 
       price: "$150", 
       subtitle: "For songwriting, demos, rehearsals, and private creative development.", 
       description: "For songwriting, demos, rehearsals, and private creative development.",
+      paypalHostedId: "CFHDJFEV6Y7WJ",
+      paypalLiveUrl: "https://www.paypal.com/ncp/payment/CFHDJFEV6Y7WJ",
       usageTerms: [
+        "High-Resolution WAV Master",
         "Tagged Reference MP3",
-        "Watermarked WAV",
         "Archive Access Certificate",
+        "Executed Agreement",
         "No commercial release",
         "No distribution",
         "No monetization",
-        "No public exploitation"
+        "PayPal Hosted ID: CFHDJFEV6Y7WJ"
       ],
       buttonText: "REQUEST ACCESS — $150"
     },
     { 
       id: "release", 
+      code: "TOC-CRL",
       title: "Commercial Release License", 
       price: "$500", 
       subtitle: "For approved commercial releases on digital music platforms.", 
       description: "For approved commercial releases on digital music platforms.",
+      paypalHostedId: "D7BRUR9T5CPNA",
+      paypalLiveUrl: "https://www.paypal.com/ncp/payment/D7BRUR9T5CPNA",
       usageTerms: [
         "High-Resolution WAV",
         "Reference MP3",
         "License Agreement",
         "Metadata Package",
         "Clearance Certificate",
-        "Commercial distribution permitted within the executed agreement"
+        "Commercial distribution permitted within the executed agreement",
+        "PayPal Hosted ID: D7BRUR9T5CPNA"
       ],
       buttonText: "REQUEST LICENSE — $500"
     },
     { 
       id: "commercial", 
+      code: "TOC-CEL",
       title: "Commercial Exploitation License", 
       price: "$1,000", 
       subtitle: "For professional releases, monetized content, live performance, and promotional use.", 
       description: "For professional releases, monetized content, live performance, and promotional use.",
+      paypalHostedId: "KKUAY9LJHBKCE",
+      paypalLiveUrl: "https://www.paypal.com/ncp/payment/KKUAY9LJHBKCE",
       usageTerms: [
         "High-Resolution WAV",
         "Production Stems",
@@ -397,31 +394,39 @@ export default function OwlClock({
         "Metadata Package",
         "Documentation Package",
         "Clearance Certificate",
-        "Commercial use permitted within the executed agreement"
+        "Commercial use permitted within the executed agreement",
+        "PayPal Hosted ID: KKUAY9LJHBKCE"
       ],
       buttonText: "REQUEST LICENSE — $1,000"
     },
     { 
       id: "sync", 
+      code: "TOC-SML",
       title: "Synchronization & Master License", 
       price: "CUSTOM PROPOSAL", 
       subtitle: "For film, television, advertising, brand campaigns, games, and broadcast media.", 
       description: "For film, television, advertising, brand campaigns, games, and broadcast media.",
+      paypalHostedId: "MLHYEFHQY8494",
+      paypalLiveUrl: "https://www.paypal.com/ncp/payment/MLHYEFHQY8494",
       usageTerms: [
         "Project-Specific License",
         "Approved Media Usage",
         "Territory & Term Schedule",
         "Master & Composition Clearance",
-        "Pricing quoted per project"
+        "Pricing quoted per project",
+        "PayPal Hosted ID: MLHYEFHQY8494"
       ],
       buttonText: "REQUEST PROPOSAL"
     },
     { 
       id: "exclusive", 
+      code: "TOC-EAA",
       title: "Exclusive Archive Acquisition", 
       price: "$5,000", 
       subtitle: "For exclusive control and permanent removal from future public licensing.", 
       description: "For exclusive control and permanent removal from future public licensing.",
+      paypalHostedId: "KCXV2FHADXRDL",
+      paypalLiveUrl: "https://www.paypal.com/ncp/payment/KCXV2FHADXRDL",
       usageTerms: [
         "Exclusive Acquisition Agreement",
         "Full Production Files",
@@ -430,19 +435,24 @@ export default function OwlClock({
         "Exclusive Clearance Certificate",
         "Ownership Documentation (where applicable)",
         "Existing non-exclusive licenses remain valid",
-        "Rights transfer only as stated in the executed agreement"
+        "Rights transfer only as stated in the executed agreement",
+        "PayPal Hosted ID: KCXV2FHADXRDL"
       ],
       buttonText: "REQUEST ACQUISITION — $5,000"
     },
     { 
       id: "collaboration", 
+      code: "TOC-PCOL",
       title: "Producer Collaboration", 
       price: "REVIEW", 
       subtitle: "Selected projects may qualify for collaboration without an upfront licensing fee.", 
       description: "Selected projects may qualify for collaboration without an upfront licensing fee. Writer shares, publishing participation, master ownership, royalties, credits, and administrative responsibilities are negotiated individually and documented before commercial release.",
+      paypalHostedId: "UZY4LJVGTHQC4",
+      paypalLiveUrl: "https://www.paypal.com/ncp/payment/UZY4LJVGTHQC4",
       usageTerms: [
         "Selected projects may qualify for collaboration without an upfront licensing fee",
-        "Writer shares, publishing participation, master ownership, royalties, credits, and administrative responsibilities are negotiated individually and documented before commercial release."
+        "Writer shares, publishing participation, master ownership, royalties, credits, and administrative responsibilities are negotiated individually and documented before commercial release.",
+        "PayPal Hosted ID: UZY4LJVGTHQC4"
       ],
       buttonText: "SUBMIT PROJECT FOR REVIEW"
     }
@@ -505,7 +515,7 @@ export default function OwlClock({
     if (activePlayId) {
       const activeFrag = dynamicClockFragments.find(f => f.id === activePlayId || f.mappedId === activePlayId);
       if (activeFrag) {
-        const cleaned = activeFrag.label.replace("FRAGMENT ", "").trim(); // "07:15 AM"
+        const cleaned = activeFrag.label.replace("FRAGMENT ", "").trim(); // "11:11 PM"
         const [timeStr, ampmStr] = cleaned.split(" ");
         const [hStr, mStr] = timeStr.split(":");
         let h = parseInt(hStr, 10);

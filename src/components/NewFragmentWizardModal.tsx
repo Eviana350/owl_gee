@@ -187,10 +187,10 @@ export default function NewFragmentWizardModal({
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
   // Form State
-  const [fragmentTimestamp, setFragmentTimestamp] = useState(initialData?.fragmentTimestamp || "07:15 AM");
+  const [fragmentTimestamp, setFragmentTimestamp] = useState(initialData?.fragmentTimestamp || "11:11 PM");
   const [compositionTitle, setCompositionTitle] = useState(initialData?.compositionTitle || "");
   const [compositionId, setCompositionId] = useState(initialData?.compositionId || `LOC-COMP-${Math.floor(1000 + Math.random() * 9000)}`);
-  const [fragmentId, setFragmentId] = useState(initialData?.id || "07:15");
+  const [fragmentId, setFragmentId] = useState(initialData?.id || "11:11");
   const [bpm, setBpm] = useState<number>(initialData?.bpm || 110);
   const [key, setKey] = useState<string>(initialData?.key || "E Minor");
   const [duration, setDuration] = useState<string>(initialData?.duration || "03:15");
@@ -254,10 +254,10 @@ export default function NewFragmentWizardModal({
       setCurrentStep(1);
 
       if (initialData) {
-        setFragmentTimestamp(initialData.fragmentTimestamp || "07:15 AM");
+        setFragmentTimestamp(initialData.fragmentTimestamp || "11:11 PM");
         setCompositionTitle(initialData.compositionTitle || "");
         setCompositionId(initialData.compositionId || `LOC-COMP-${Math.floor(1000 + Math.random() * 9000)}`);
-        setFragmentId(initialData.id || "07:15");
+        setFragmentId(initialData.id || "11:11");
         setBpm(initialData.bpm || 110);
         setKey(initialData.key || "E Minor");
         setDuration(initialData.duration || "03:15");
@@ -288,7 +288,7 @@ export default function NewFragmentWizardModal({
       } else {
         setCompositionTitle("");
         setCompositionId(`LOC-COMP-${Math.floor(1000 + Math.random() * 9000)}`);
-        setFragmentId("07:15");
+        setFragmentId("11:11");
         setGenre([]);
         setMood([]);
         setArchiveNote("");
@@ -303,15 +303,15 @@ export default function NewFragmentWizardModal({
 
   // Dynamic License Agreement Data Builder
   const getAgreementPayloadForAgreement = (ag: LicenseAgreementItem): LicenseAgreementData => {
-    const cleanId = fragmentId ? fragmentId.replace(/[^a-zA-Z0-9]/g, "") : "0715";
-    const formattedArchiveId = `TOC-${cleanId || "0715"}-001`;
+    const cleanId = fragmentId ? fragmentId.replace(/[^a-zA-Z0-9]/g, "") : "1111";
+    const formattedArchiveId = `TOC-${cleanId || "1111"}-001`;
 
     return {
       licenseId: `TOC-LIC-${Date.now().toString().slice(-8)}`,
       transactionRef: `LMN-TX-${Math.floor(100000 + Math.random() * 900000)}`,
       purchaseDate: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
       licenseeLegalName: "VALUED LICENSEE / PENDING ASSIGNMENT",
-      licenseeEmail: "licensing@theowlclock.com",
+      licenseeEmail: "licensing@theowlclock.io",
       fragmentTitle: compositionTitle.trim() || fragmentTimestamp || "Archived Fragment",
       archiveIdentifier: formattedArchiveId,
       licenseTierId: ag.tierId,
@@ -331,8 +331,8 @@ export default function NewFragmentWizardModal({
     const matched = agreements.find(a => a.tierId === tier);
     if (matched) return getAgreementPayloadForAgreement(matched);
 
-    const cleanId = fragmentId ? fragmentId.replace(/[^a-zA-Z0-9]/g, "") : "0715";
-    const formattedArchiveId = `TOC-${cleanId || "0715"}-001`;
+    const cleanId = fragmentId ? fragmentId.replace(/[^a-zA-Z0-9]/g, "") : "1111";
+    const formattedArchiveId = `TOC-${cleanId || "1111"}-001`;
     let tierPrice: number | string = 150;
     if (tier === "access") tierPrice = licenses.access?.price ?? 150;
     else if (tier === "release") tierPrice = licenses.release?.price ?? 500;
@@ -346,7 +346,7 @@ export default function NewFragmentWizardModal({
       transactionRef: `LMN-TX-${Math.floor(100000 + Math.random() * 900000)}`,
       purchaseDate: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
       licenseeLegalName: "VALUED LICENSEE / PENDING ASSIGNMENT",
-      licenseeEmail: "licensing@theowlclock.com",
+      licenseeEmail: "licensing@theowlclock.io",
       fragmentTitle: compositionTitle.trim() || fragmentTimestamp || "Archived Fragment",
       archiveIdentifier: formattedArchiveId,
       licenseTierId: tier,
@@ -677,7 +677,7 @@ export default function NewFragmentWizardModal({
   };
 
   const buildFragmentRecord = (finalStatus: "draft" | "published" | "scheduled"): FullFragmentRecord => {
-    const cleanFrag = fragmentId ? fragmentId.replace(/[^a-zA-Z0-9]/g, "") : "0715";
+    const cleanFrag = fragmentId ? fragmentId.replace(/[^a-zA-Z0-9]/g, "") : "1111";
     const autoDocs: FragmentDocument[] = [
       {
         id: `auto-doc-${cleanFrag}-access`,
@@ -946,10 +946,10 @@ export default function NewFragmentWizardModal({
                 onClick={() => {
                   setIsSuccess(false);
                   setCurrentStep(1);
-                  setFragmentTimestamp("07:15 AM");
+                  setFragmentTimestamp("11:11 PM");
                   setCompositionTitle("");
                   setCompositionId(`LOC-COMP-${Math.floor(1000 + Math.random() * 9000)}`);
-                  setFragmentId("07:15");
+                  setFragmentId("11:11");
                   setAudioFiles([]);
                   setStemManifest(undefined);
                   setIndividualStems([]);
@@ -1941,7 +1941,7 @@ export default function NewFragmentWizardModal({
                     {isNewAgreement ? "CREATE CUSTOM LICENSE AGREEMENT" : `EDIT ${editingAgreement.badge || "AGREEMENT"}`}
                   </h4>
                   <span className="text-[10px] text-zinc-500 font-mono">
-                    Fragment: {fragmentTimestamp} &bull; Bound to {fragmentId || "07:15"}
+                    Fragment: {fragmentTimestamp} &bull; Bound to {fragmentId || "11:11"}
                   </span>
                 </div>
               </div>

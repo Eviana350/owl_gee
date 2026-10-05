@@ -66,7 +66,7 @@ export default function AcceptableUsePage({ onBack }: AcceptableUsePageProps) {
           </div>
 
           <p className="text-[13px] leading-relaxed text-zinc-300 pt-2">
-            This Acceptable Use Policy explains the standards that apply when accessing or using <strong className="text-white">theowlclock.com</strong>, its Archive, licensing systems, clearance services, downloads, metadata, documentation, and related services operated by <strong className="text-white">LOMON LLC</strong>.
+            This Acceptable Use Policy explains the standards that apply when accessing or using <strong className="text-white">theowlclock.io</strong>, its Archive, licensing systems, clearance services, downloads, metadata, documentation, and related services operated by <strong className="text-white">LOMON LLC</strong>.
           </p>
 
           <div className="p-4 bg-zinc-950 border border-zinc-900 text-[11.5px] text-zinc-400 leading-relaxed rounded-sm">
@@ -439,8 +439,8 @@ export default function AcceptableUsePage({ onBack }: AcceptableUsePageProps) {
             </h2>
             <p>Suspected violations of this Policy may be reported to:</p>
             <div className="p-3 bg-zinc-950 border border-zinc-900 rounded-sm w-fit font-mono text-[12px] my-2">
-              <a href="mailto:legal@theowlclock.com" className="text-zinc-200 hover:text-white underline">
-                legal@theowlclock.com
+              <a href="mailto:legal@theowlclock.io" className="text-zinc-200 hover:text-white underline">
+                legal@theowlclock.io
               </a>
             </div>
             <p className="text-[12.5px] text-zinc-400">Please include:</p>
@@ -487,25 +487,25 @@ export default function AcceptableUsePage({ onBack }: AcceptableUsePageProps) {
 
               <div className="pt-2 border-t border-zinc-900 flex flex-wrap items-center gap-4">
                 <a
-                  href="mailto:legal@theowlclock.com"
+                  href="mailto:legal@theowlclock.io"
                   className="inline-flex items-center gap-2 text-zinc-200 hover:text-white transition-colors cursor-pointer font-mono font-bold"
                 >
                   <Mail size={13} className="text-zinc-400" />
-                  <span>legal@theowlclock.com</span>
+                  <span>legal@theowlclock.io</span>
                 </a>
                 <a
-                  href="mailto:licensing@theowlclock.com"
+                  href="mailto:licensing@theowlclock.io"
                   className="inline-flex items-center gap-2 text-zinc-200 hover:text-white transition-colors cursor-pointer font-mono font-bold"
                 >
                   <Mail size={13} className="text-zinc-400" />
-                  <span>licensing@theowlclock.com</span>
+                  <span>licensing@theowlclock.io</span>
                 </a>
                 <a
-                  href="mailto:support@theowlclock.com"
+                  href="mailto:support@theowlclock.io"
                   className="inline-flex items-center gap-2 text-zinc-200 hover:text-white transition-colors cursor-pointer font-mono font-bold"
                 >
                   <Mail size={13} className="text-zinc-400" />
-                  <span>support@theowlclock.com</span>
+                  <span>support@theowlclock.io</span>
                 </a>
               </div>
             </div>

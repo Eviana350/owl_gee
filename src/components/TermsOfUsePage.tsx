@@ -66,7 +66,7 @@ export default function TermsOfUsePage({ onBack }: TermsOfUsePageProps) {
           </div>
 
           <p className="text-[12px] leading-relaxed text-zinc-300 font-sans pt-2">
-            These Terms of Use govern access to and use of <strong className="text-white">theowlclock.com</strong>, its archived audio fragments, licensing services, clearance systems, metadata, documentation, downloads, communications, and related features.
+            These Terms of Use govern access to and use of <strong className="text-white">theowlclock.io</strong>, its archived audio fragments, licensing services, clearance systems, metadata, documentation, downloads, communications, and related features.
           </p>
 
           <div className="p-4 bg-zinc-950 border border-zinc-900 text-[11px] text-zinc-400 font-mono leading-relaxed space-y-1.5 rounded-sm">
@@ -424,32 +424,32 @@ export default function TermsOfUsePage({ onBack }: TermsOfUsePageProps) {
 
               <div className="pt-3 border-t border-zinc-900 flex flex-wrap items-center gap-4 text-[11px]">
                 <a
-                  href="mailto:licensing@theowlclock.com"
+                  href="mailto:licensing@theowlclock.io"
                   className="inline-flex items-center gap-2 text-zinc-300 hover:text-white transition-colors cursor-pointer"
                 >
                   <Mail size={13} />
-                  <span>licensing@theowlclock.com</span>
+                  <span>licensing@theowlclock.io</span>
                 </a>
                 <a
-                  href="mailto:legal@theowlclock.com"
+                  href="mailto:legal@theowlclock.io"
                   className="inline-flex items-center gap-2 text-zinc-300 hover:text-white transition-colors cursor-pointer"
                 >
                   <Mail size={13} />
-                  <span>legal@theowlclock.com</span>
+                  <span>legal@theowlclock.io</span>
                 </a>
                 <a
-                  href="mailto:contact@theowlclock.com"
+                  href="mailto:contact@theowlclock.io"
                   className="inline-flex items-center gap-2 text-zinc-300 hover:text-white transition-colors cursor-pointer"
                 >
                   <Mail size={13} />
-                  <span>contact@theowlclock.com</span>
+                  <span>contact@theowlclock.io</span>
                 </a>
                 <a
-                  href="mailto:support@theowlclock.com"
+                  href="mailto:support@theowlclock.io"
                   className="inline-flex items-center gap-2 text-zinc-300 hover:text-white transition-colors cursor-pointer"
                 >
                   <Mail size={13} />
-                  <span>support@theowlclock.com</span>
+                  <span>support@theowlclock.io</span>
                 </a>
               </div>
             </div>

@@ -16,7 +16,7 @@ export const LICENSOR_GLOBAL_METADATA = {
   writerIpi: "01305977829",
   publisherName: "LOMON LLC (d/b/a The Owl Clock)",
   publisherIpi: "01305977829",
-  licensorEmail: "licensing@theowlclock.com"
+  licensorEmail: "licensing@theowlclock.io"
 } as const;
 
 export interface LicenseAgreementData {
@@ -123,13 +123,13 @@ export interface LegalArticle {
 export function normalizeTierId(tierIdOrPrice?: string | number): "access" | "release" | "commercial" | "exclusive" | "sync" | "collaboration" | "test" {
   if (!tierIdOrPrice && tierIdOrPrice !== 0) return "access";
   const str = String(tierIdOrPrice).toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (str.includes("eaa") || str.includes("5000") || str.includes("exclusive") || str.includes("acqui")) return "exclusive";
+  if (str.includes("cel") || str.includes("1000") || str.includes("commercial") || str.includes("exploit")) return "commercial";
+  if (str.includes("crl") || str.includes("500") || str.includes("release")) return "release";
+  if (str.includes("aal") || str.includes("150") || str.includes("access")) return "access";
+  if (str.includes("pcol") || str.includes("collab") || str.includes("collaboration") || str.includes("producer")) return "collaboration";
+  if (str.includes("sml") || str.includes("sync") || str.includes("custom") || str.includes("proposal")) return "sync";
   if (str.includes("test") || str === "1" || str === "100" || str.includes("egwc37l2lbcaq")) return "test";
-  if (str.includes("5000") || str.includes("exclusive") || str.includes("acqui")) return "exclusive";
-  if (str.includes("1000") || str.includes("commercial") || str.includes("exploit")) return "commercial";
-  if (str.includes("500") || str.includes("release")) return "release";
-  if (str.includes("150") || str.includes("access")) return "access";
-  if (str.includes("collab") || str.includes("collaboration") || str.includes("producer")) return "collaboration";
-  if (str.includes("sync") || str.includes("custom") || str.includes("proposal")) return "sync";
   return "access";
 }
 
@@ -2153,7 +2153,7 @@ export async function downloadBeatZipPackage(options: {
   const zip = new JSZip();
   const folder = zip.folder(folderName) || zip;
 
-  const email = userEmail || recordOrFragment.clientId || recordOrFragment.email || licenseData?.licenseeEmail || "licensee@theowlclock.com";
+  const email = userEmail || recordOrFragment.clientId || recordOrFragment.email || licenseData?.licenseeEmail || "licensee@theowlclock.io";
   const clientName = recordOrFragment.clientName || recordOrFragment.licenseeLegalName || licenseData?.licenseeLegalName || email;
   const bpm = recordOrFragment.bpm || 108;
   const key = recordOrFragment.tonalSignature || recordOrFragment.key || "C Minor";

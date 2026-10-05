@@ -78,11 +78,37 @@ export default function ProposalPage({
     if (!formData.proposerName || !formData.email || !formData.projectOverview) return;
 
     setIsSubmitting(true);
+    const generatedRef = `PROP-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+    setProposalRef(generatedRef);
+
+    // Dispatch live email notification to soluwatist@gmail.com & applicant confirmation via Resend
+    fetch("/api/emails/send-proposal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        proposalRef: generatedRef,
+        proposerName: formData.proposerName,
+        organization: formData.organization,
+        email: formData.email,
+        phone: formData.phone,
+        proposalType: formData.proposalType,
+        targetFragment: formData.targetFragment,
+        mediaType: formData.mediaType,
+        projectTitle: formData.projectTitle,
+        projectOverview: formData.projectOverview,
+        distributionScope: formData.distributionScope,
+        territory: formData.territory,
+        term: formData.term,
+        budgetRange: formData.budgetRange,
+        isCollaboration: isCollaborationMode
+      })
+    }).catch(err => {
+      console.warn("Proposal email delivery fallback:", err);
+    });
+
     setTimeout(() => {
       setIsSubmitting(false);
       setIsSubmitted(true);
-      const generatedRef = `PROP-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
-      setProposalRef(generatedRef);
 
       // Register proposal into administrative clearance ledger
       if (typeof window !== "undefined") {

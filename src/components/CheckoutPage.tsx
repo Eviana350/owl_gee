@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   X, ArrowUpRight, ChevronRight, Trash2, Mail, Phone, MapPin, 
@@ -7,7 +7,7 @@ import {
   Package, Clock
 } from "lucide-react";
 import { CartItem } from "../App";
-import { DEFAULT_LICENSE_TEMPLATES } from "../licenses";
+import { DEFAULT_LICENSE_TEMPLATES, PAYPAL_HOSTED_PLANS } from "../licenses";
 import { 
   openOrDownloadLicenseAgreement, 
   downloadBeatZipPackage,
@@ -150,23 +150,43 @@ export default function CheckoutPage({
     return sum + numericPrice;
   }, 0);
 
-  const subtotal = itemTotal - discount;
-  const isOneDollarTesting = subtotal === 1 || cart.some(i => i.tierId === "test" || i.price === "$1" || i.price === "$1.00");
+  const subtotal = Math.max(0, itemTotal - discount);
+
+  // Dynamically resolve the official PayPal hosted plan for the current cart/item
+  const matchedPlan = useMemo(() => {
+    const firstItem = cart[0];
+    const candidateTier = (firstItem?.tierId || "").toLowerCase();
+    const itemPrice = parseFloat(firstItem?.price?.replace(/[^0-9.]/g, "") || "0");
+    
+    if (candidateTier.includes("exclusive") || candidateTier === "exclusive" || itemPrice >= 4500) {
+      return PAYPAL_HOSTED_PLANS["TOC-EAA"];
+    }
+    if (candidateTier.includes("commercial") || candidateTier.includes("exploit") || itemPrice >= 900) {
+      return PAYPAL_HOSTED_PLANS["TOC-CEL"];
+    }
+    if (candidateTier.includes("release") || itemPrice >= 400) {
+      return PAYPAL_HOSTED_PLANS["TOC-CRL"];
+    }
+    if (candidateTier.includes("sync")) {
+      return PAYPAL_HOSTED_PLANS["TOC-SML"];
+    }
+    if (candidateTier.includes("collab")) {
+      return PAYPAL_HOSTED_PLANS["TOC-PCOL"];
+    }
+    return PAYPAL_HOSTED_PLANS["TOC-AAL"];
+  }, [cart]);
 
   const handleApplyCoupon = (e: React.FormEvent) => {
     e.preventDefault();
     const code = (couponCode || "").toUpperCase();
-    if (code === "TEST" || code === "TEST1" || code === "EGWC37L2LBCAQ" || code === "1") {
-      setDiscount(Math.max(0, itemTotal - 1.00));
-      setCouponApplied(true);
-    } else if (code === "OWL20") {
+    if (code === "OWL20") {
       setDiscount(itemTotal * 0.20);
       setCouponApplied(true);
     } else if (code === "SIGNAL15") {
       setDiscount(itemTotal * 0.15);
       setCouponApplied(true);
     } else {
-      alert("Invalid coupon code. Try 'EGWC37L2LBCAQ' or 'TEST' for $1.00 testing clearance, or 'OWL20' for 20% off.");
+      alert("Invalid coupon code. Try 'OWL20' for 20% off or 'SIGNAL15' for 15% off.");
     }
   };
 
@@ -309,7 +329,9 @@ export default function CheckoutPage({
           licenseeLegalName: legalName,
           billing: { firstName, lastName, streetAddress, city, stateProvince, zipCode, country },
           amount: subtotal,
-          paymentId: isOneDollarTesting ? "EGWC37L2LBCAQ" : undefined,
+          paymentId: matchedPlan.hostedId,
+          licenseCode: matchedPlan.code,
+          tierId: matchedPlan.tierId,
           items: cart.map(item => ({
             fragmentId: item.id,
             name: item.name,
@@ -608,15 +630,19 @@ export default function CheckoutPage({
                                   </h4>
                                   <p className="text-zinc-500 text-[10.5px] mt-1 uppercase tracking-wider font-normal font-sans">
                                     TRACK • {
-                                      item.tierId === "test" || item.price === "$1" || item.price === "$1.00"
-                                        ? "ARCHIVE $1 TEST CLEARANCE (PAYPAL ID: EGWC37L2LBCAQ)"
-                                        : item.tierId === "access" || item.price === "$150" || item.price === "$150.00"
-                                        ? "ARCHIVE ACCESS LICENSE (REFERENCE MP3, WATERMARKED WAV)"
+                                      item.tierId === "access" || item.price === "$150" || item.price === "$150.00"
+                                        ? "ARCHIVE ACCESS LICENSE [TOC-AAL] (WAV, MP3)"
                                         : item.tierId === "release" || item.price === "$500" || item.price === "$500.00"
-                                        ? "COMMERCIAL RELEASE LICENSE (LOSSLESS WAV, MP3)"
-                                        : item.tierId === "exclusive" || item.price === "$5,000" || item.price === "$5000" || item.price === "$5000.00"
-                                        ? "COMMERCIAL LICENSE (STEMS, WAV, MP3)"
-                                        : "COMMERCIAL LICENSE (STEMS, WAV, MP3)"
+                                        ? "COMMERCIAL RELEASE LICENSE [TOC-CRL] (LOSSLESS WAV, MP3)"
+                                        : item.tierId === "commercial" || item.price === "$1,000" || item.price === "$1000"
+                                        ? "COMMERCIAL EXPLOITATION LICENSE [TOC-CEL] (STEMS, WAV, MP3)"
+                                        : item.tierId === "exclusive" || item.price === "$5,000" || item.price === "$5000"
+                                        ? "EXCLUSIVE ARCHIVE ACQUISITION [TOC-EAA] (FULL MASTER & STEMS)"
+                                        : item.tierId === "sync"
+                                        ? "SYNCHRONIZATION & MASTER LICENSE [TOC-SML]"
+                                        : item.tierId === "collaboration"
+                                        ? "PRODUCER COLLABORATION [TOC-PCOL]"
+                                        : "COMMERCIAL LICENSE [TOC-AAL] (WAV, MP3)"
                                     }
                                   </p>
                                   {isAcquiredExclusively && (
@@ -979,27 +1005,28 @@ export default function CheckoutPage({
                     </div>
 
                     <h2 className="text-base sm:text-lg font-bold tracking-[0.25em] text-[#D9D6CA] uppercase mb-3 font-sans">
-                      {isOneDollarTesting ? "PAYPAL $1.00 TEST CHECKOUT" : "SECURE CONNECTION TO PAYPAL"}
+                      SECURE CONNECTION TO PAYPAL
                     </h2>
 
-                    {isOneDollarTesting && (
-                      <div className="bg-emerald-950/40 border border-emerald-500/50 rounded-sm p-3.5 text-left w-full mb-5 font-sans space-y-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                          <span className="text-emerald-400 font-mono text-[10px] font-bold tracking-widest uppercase">
-                            LIVE TEST PAYMENT • ID: EGWC37L2LBCAQ
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-zinc-300 font-light leading-relaxed">
-                          This test transaction connects to your official PayPal hosted payment link (<code className="text-emerald-300 font-mono">EGWC37L2LBCAQ</code>). Click below to pay $1.00 on PayPal, then click complete to issue your dynamically executed clearance agreement and master files.
-                        </p>
+                    <div className="bg-zinc-950/80 border border-zinc-800 rounded-sm p-3.5 text-left w-full mb-5 font-sans space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-white font-mono text-[11px] font-bold tracking-widest uppercase">
+                          [{matchedPlan.code}] {matchedPlan.title}
+                        </span>
+                        <span className="text-[#00E676] font-mono text-[11px] font-bold">
+                          {matchedPlan.priceDisplay}
+                        </span>
                       </div>
-                    )}
+                      <div className="text-[10px] text-zinc-400 font-mono">
+                        OFFICIAL PAYPAL HOSTED ID: <span className="text-[#00E676] font-bold">{matchedPlan.hostedId}</span>
+                      </div>
+                      <p className="text-[11px] text-zinc-400 font-light leading-relaxed">
+                        Securely connects to your official PayPal hosted checkout portal for instant clearance execution.
+                      </p>
+                    </div>
 
                     <p className="text-[11.5px] text-zinc-400 font-sans font-light leading-relaxed mb-6 max-w-sm">
-                      {isOneDollarTesting 
-                        ? "Authorize the $1.00 payment via PayPal hosted checkout to verify the automated licensing and repository workflow."
-                        : "We are securely routing your connection to PayPal hosted checkout to authorize your digital acquisition."}
+                      We are securely routing your session to the official PayPal hosted payment portal to authorize your digital acquisition.
                     </p>
 
                     {paypalError ? (
@@ -1014,14 +1041,14 @@ export default function CheckoutPage({
                     )}
 
                     <div className="w-full space-y-3">
-                      {paypalApproveUrl ? (
+                      {paypalApproveUrl || matchedPlan.url ? (
                         <a
-                          href={paypalApproveUrl}
+                          href={paypalApproveUrl || matchedPlan.url}
                           target={typeof window !== "undefined" && window.self !== window.top ? "_blank" : "_self"}
                           rel="noopener noreferrer"
                           className="w-full text-[11px] font-sans font-extrabold text-black bg-[#D9D6CA] hover:bg-white py-3.5 tracking-widest uppercase transition-all rounded-[4px] cursor-pointer shadow-lg inline-flex items-center justify-center gap-2"
                         >
-                          <span>{isOneDollarTesting ? "PAY $1.00 ON PAYPAL (ID: EGWC37L2LBCAQ) ↗" : "PROCEED TO PAYPAL CHECKOUT (PAY NOW) ↗"}</span>
+                          <span>PAY WITH PAYPAL ({matchedPlan.code} • {matchedPlan.priceDisplay}) ↗</span>
                         </a>
                       ) : (
                         <button
@@ -1035,21 +1062,21 @@ export default function CheckoutPage({
                               <span>CONNECTING TO PAYPAL...</span>
                             </>
                           ) : (
-                            <span>{isOneDollarTesting ? "PAY $1.00 ON PAYPAL (ID: EGWC37L2LBCAQ) ↗" : "PROCEED TO SECURE CHECKOUT →"}</span>
+                            <span>PAY WITH PAYPAL ({matchedPlan.code} • {matchedPlan.priceDisplay}) ↗</span>
                           )}
                         </button>
                       )}
 
-                      {(!isLiveMode || isOneDollarTesting) && (
+                      {!isLiveMode && (
                         <button
                           type="button"
                           onClick={handleAuthorizeDirectSandbox}
                           disabled={paypalProcessing}
                           className="w-full text-[10.5px] font-mono font-bold text-[#00E676] hover:text-black bg-[#00E676]/10 hover:bg-[#00E676] border border-[#00E676]/40 hover:border-[#00E676] py-3 tracking-wider uppercase transition-all rounded-[4px] cursor-pointer flex items-center justify-center gap-2"
-                          title={isOneDollarTesting ? "Complete $1 test transaction and generate dynamic license agreement" : "Authorize instant sandbox clearance transaction for verification"}
+                          title="Authorize instant sandbox clearance transaction for verification"
                         >
                           <ShieldCheck size={14} />
-                          <span>{isOneDollarTesting ? "FINALIZE $1 TEST & ISSUE DYNAMIC LICENSE →" : "AUTHORIZE TRANSACTION (TEST / SANDBOX) →"}</span>
+                          <span>AUTHORIZE TRANSACTION (TEST / SANDBOX) →</span>
                         </button>
                       )}
 
@@ -1102,30 +1129,16 @@ export default function CheckoutPage({
                   </span>
                 </div>
 
-                {/* 1$ Testing badge & 1-click switcher */}
-                {isOneDollarTesting ? (
-                  <div className="mt-2.5 p-2 bg-emerald-950/30 border border-emerald-500/40 rounded text-left">
-                    <div className="text-[9px] font-mono font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      1$ TEST MODE ACTIVE
-                    </div>
-                    <div className="text-[10px] text-zinc-300 font-sans mt-0.5">
-                      PayPal Payment ID: <span className="font-mono text-emerald-300 font-bold">EGWC37L2LBCAQ</span>
-                    </div>
+                {/* Official PayPal Hosted Clearance Badge */}
+                <div className="mt-2.5 p-2.5 bg-zinc-950/70 border border-zinc-800 rounded text-left space-y-1">
+                  <div className="text-[9.5px] font-mono font-bold text-zinc-300 uppercase tracking-widest flex items-center justify-between">
+                    <span className="text-[#00E676]">[{matchedPlan.code}]</span>
+                    <span className="text-zinc-400 font-mono text-[9px]">ID: {matchedPlan.hostedId}</span>
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCouponCode("EGWC37L2LBCAQ");
-                      setDiscount(Math.max(0, itemTotal - 1.00));
-                      setCouponApplied(true);
-                    }}
-                    className="w-full mt-2.5 py-1.5 px-2 bg-emerald-950/20 hover:bg-emerald-950/40 border border-emerald-500/30 hover:border-emerald-500/60 rounded text-emerald-400 font-mono text-[9px] uppercase tracking-wider transition-colors cursor-pointer text-center block"
-                  >
-                    🧪 Switch Cart to $1 Test Clearance (ID: EGWC37L2LBCAQ)
-                  </button>
-                )}
+                  <div className="text-[10px] text-zinc-400 font-sans truncate">
+                    {matchedPlan.title} • Live PayPal Checkout
+                  </div>
+                </div>
               </div>
 
               {/* Terms agreement checkbox (MUST NOT be preselected) */}

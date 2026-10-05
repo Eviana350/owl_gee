@@ -113,8 +113,12 @@ function sanitizeForLocalStorage(list: FullFragmentRecord[]): FullFragmentRecord
   });
 }
 
+export const ALLOWED_DEFAULT_IDS = new Set([
+  "11:11", "10:00", "09:41", "01:16", "03:21"
+]);
+
 const DEPRECATED_DEFAULT_IDS = new Set([
-  "00:50", "07:46", "02:17", "05:58", "03:33", "10:14", "11:28", "11:59", "11:28-alt"
+  "00:50", "07:46", "02:17", "05:58", "03:33", "10:14", "11:28", "11:59", "11:28-alt", "07:15", "0715"
 ]);
 
 // Helper: Get all full fragments
@@ -209,8 +213,8 @@ export function getStoredFullFragments(): FullFragmentRecord[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed: FullFragmentRecord[] = JSON.parse(raw);
-      // Filter out removed/deprecated fragments from previous session
-      const validStored = parsed.filter(item => !DEPRECATED_DEFAULT_IDS.has(item.id));
+      // Filter out removed/deprecated fragments and strictly keep only the 5 allowed beats
+      const validStored = parsed.filter(item => !DEPRECATED_DEFAULT_IDS.has(item.id) && ALLOWED_DEFAULT_IDS.has(item.id));
 
       if (validStored.length > 0) {
         // Ensure baseline seed fragments (03:21, 09:41, 10:00, 01:16, 11:11) exist and have latest links
@@ -414,7 +418,7 @@ export function parseFragmentTimeDetails(timestampStr: string): ParsedTimeDetail
 
   const clean = String(timestampStr).trim().toUpperCase();
   
-  // 1. Try standard colon format e.g. "07:15 AM", "9:41 PM", "10:00", "07:15", "12:00 PM"
+  // 1. Try standard colon format e.g. "11:11 PM", "9:41 PM", "10:00", "01:16 AM", "3:21 PM"
   const colonMatch = clean.match(/(0?[0-9]|1[0-9]|2[0-3]):([0-5]\d)\s*(AM|PM)?/i);
   
   let rawH = 10;
@@ -428,7 +432,7 @@ export function parseFragmentTimeDetails(timestampStr: string): ParsedTimeDetail
       explicitAMPM = colonMatch[3].toUpperCase() === "PM" ? "PM" : "AM";
     }
   } else {
-    // 2. Try 4-digit or 3-digit format e.g. "0715", "0941", "1000", "LOC-0715"
+    // 2. Try 4-digit or 3-digit format e.g. "1111", "0941", "1000", "0116", "0321"
     const digitMatch = clean.match(/(?:LOC-?|COMP-?|TC-?)?(\d{1,2})(\d{2})\s*(AM|PM)?/i);
     if (digitMatch) {
       rawH = parseInt(digitMatch[1], 10);
