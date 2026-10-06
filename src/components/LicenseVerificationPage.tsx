@@ -338,7 +338,7 @@ export default function LicenseVerificationPage({
                 <div>
                   <span className="text-[8.5px] text-zinc-500 uppercase block">REGISTERED EMAIL:</span>
                   <span className="text-xs font-bold text-zinc-300 block mt-0.5">
-                    {searchResult.licenseeEmail || searchResult.details?.email || "Terminal Verified"}
+                    {searchResult.licenseeEmail || searchResult.details?.email || "Account Verified"}
                   </span>
                 </div>
                 <div>

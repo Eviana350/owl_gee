@@ -12,6 +12,7 @@ import { Fragment, FRAGMENTS } from "../data";
 import { getAllActiveFragments } from "../lib/fragmentService";
 import { openOrDownloadLicenseAgreement, downloadBeatZipPackage, getPopulatedContractData, resolveLicenseeAddress } from "../lib/licenseAgreements";
 import { playFragment, pauseAudio, stopAudio, registerAudioCallback, getActiveId, isAudioPaused } from "../audio";
+import { isAdminUser } from "../lib/authUtils";
 
 // ============================================================================
 // THE OWL CLOCK / LOMON — FINAL CLIENT DASHBOARD
@@ -622,7 +623,7 @@ export default function ClientDashboard({
               NO LICENSED FRAGMENTS IN VAULT
             </h3>
             <p className="text-[11px] sm:text-xs text-zinc-400 font-sans leading-relaxed">
-              Your client terminal ({displayEmail}) has no purchased fragments yet. Only the specific fragments you license or obtain clearance for will be unlocked here.
+              Your account ({displayEmail}) has no purchased fragments yet. Only the specific fragments you license or obtain clearance for will be unlocked here.
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -755,7 +756,7 @@ export default function ClientDashboard({
         feeAmount: 500,
         date: new Date().toISOString().slice(0, 10),
         projectDescription: clearanceProject || "Commercial production usage",
-        notes: "Submitted via Client Terminal"
+        notes: "Submitted via Client Dashboard"
       };
 
       const existingRaw = localStorage.getItem("lomon_clearance_requests");
@@ -827,7 +828,7 @@ export default function ClientDashboard({
         </div>
 
         <div className="flex items-center gap-2">
-          {onOpenAdmin && (
+          {onOpenAdmin && isAdminUser(currentUserEmail) && (
             <button
               onClick={onOpenAdmin}
               className="text-[10px] sm:text-xs text-zinc-300 hover:text-white uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 px-2.5 sm:px-3 py-1.5 rounded"
@@ -2451,7 +2452,7 @@ export default function ClientDashboard({
                   </div>
 
                   <div className="bg-red-950/20 border border-red-900/40 p-2.5 text-[9.5px] text-red-300">
-                    Warning: License transfer is permanent and revokes the current terminal access token.
+                    Warning: License transfer is permanent and transfers ownership from your account.
                   </div>
 
                   <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">

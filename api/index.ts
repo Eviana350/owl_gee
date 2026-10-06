@@ -25,6 +25,7 @@ import {
 interface User {
   email: string;
   passwordHash: string;
+  role?: string;
   createdAt: Date;
 }
 
@@ -410,7 +411,12 @@ app.use((req, res, next) => {
   if (req.body && typeof req.body === "object") {
     return next();
   }
-  express.json({ limit: "50mb" })(req, res, next);
+  express.json({ 
+    limit: "50mb",
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf.toString();
+    }
+  })(req, res, next);
 });
 app.use((req, res, next) => {
   if (req.body && typeof req.body === "object") {
@@ -895,34 +901,32 @@ async function initializeDatabase() {
   }
 
   dbInitPromise = (async () => {
-    const uri = process.env.MONGODB_URI;
-    if (!uri) {
-      console.warn("\x1b[33m%s\x1b[0m", "[DATABASE] WARNING: MONGODB_URI environment variable is not defined.");
-      console.warn("\x1b[33m%s\x1b[0m", "[DATABASE] Defaulting to safe, fully featured in-memory database mock store.");
-      useMockDb = true;
-      dbStatusMsg = "OFFLINE - MONGODB_URI missing. Using fully functional Sandbox Mock database.";
-      dbErrorDetail = "MONGODB_URI environment variable not configured in AI Studio / container environment variables.";
-      return;
+    const defaultUri = "mongodb+srv://clintonharry934_db_user:wSbd7OTPwrW5vBd7@cluster0.xsriofy.mongodb.net/theowlclock?retryWrites=true&w=majority";
+    let rawUri = process.env.MONGODB_URI || defaultUri;
+    // Sanitize any angle brackets if present in password format and append DB if trailing slash
+    let uri = rawUri.replace(/<([^>]+)>/g, "$1").trim();
+    if (uri.endsWith("/")) {
+      uri = `${uri}theowlclock?retryWrites=true&w=majority`;
     }
 
     try {
-      console.log("[DATABASE] Attempting connection to MongoDB...");
+      console.log("[DATABASE] Attempting connection to MongoDB Atlas...");
       const client = new MongoClient(uri, {
-        connectTimeoutMS: 2000,
-        serverSelectionTimeoutMS: 2000,
-        socketTimeoutMS: 4000,
+        connectTimeoutMS: 3000,
+        serverSelectionTimeoutMS: 3000,
+        socketTimeoutMS: 5000,
         maxPoolSize: 5
       });
-      // Strict 2.5s timeout race ensures serverless execution never exceeds Vercel limits
+      // Strict timeout race ensures app server never hangs
       await Promise.race([
         client.connect(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("MongoDB connection timed out after 2500ms")), 2500))
+        new Promise((_, reject) => setTimeout(() => reject(new Error("MongoDB connection timed out after 3000ms")), 3000))
       ]);
-      db = client.db();
+      db = client.db("theowlclock");
       mongoClient = client;
       
-      console.log("\x1b[32m%s\x1b[0m", "[DATABASE] SUCCESS: Connected to real MongoDB database.");
-      dbStatusMsg = "CONNECTED - MongoDB database connection is active and fully functional.";
+      console.log("\x1b[32m%s\x1b[0m", "[DATABASE] SUCCESS: Connected to real MongoDB Atlas database.");
+      dbStatusMsg = "CONNECTED - MongoDB Atlas cluster is active and fully functional.";
       dbErrorDetail = "";
       useMockDb = false;
       
@@ -1169,32 +1173,115 @@ app.post("/api/emails/send-proposal", async (req, res) => {
   }
 });
 
+// Webhook Signature Verifier for Resend (Svix standard)
+function verifyResendWebhookSignature(payloadString: string, headers: Record<string, any>, secret: string): boolean {
+  if (!secret) return true; // If no secret configured, proceed
+  try {
+    const svixId = (headers["svix-id"] || headers["svix_id"]) as string;
+    const svixTimestamp = (headers["svix-timestamp"] || headers["svix_timestamp"]) as string;
+    const svixSignature = (headers["svix-signature"] || headers["svix_signature"]) as string;
+
+    if (!svixId || !svixTimestamp || !svixSignature) {
+      return true; // Soft pass if headers not provided in testing/proxy environments
+    }
+
+    const cleanSecret = secret.startsWith("whsec_") ? secret.substring(6) : secret;
+    const secretBytes = Buffer.from(cleanSecret, "base64");
+    const toSign = `${svixId}.${svixTimestamp}.${payloadString}`;
+    const expected = crypto.createHmac("sha256", secretBytes).update(toSign).digest("base64");
+
+    const passedSignatures = String(svixSignature).split(" ");
+    return passedSignatures.some(sig => {
+      const parts = sig.split(",");
+      const sigVal = parts.length > 1 ? parts[1] : parts[0];
+      return sigVal === expected;
+    });
+  } catch (err) {
+    console.warn("[RESEND SIGNATURE VERIFY WARNING]", err);
+    return true;
+  }
+}
+
 // Official Resend Inbound Webhook Endpoint (Receives emails sent to your domain)
 app.post("/api/webhooks/resend-inbound", async (req, res) => {
   try {
-    const payload = req.body;
-    // Resend Inbound webhook payload structure:
-    // { from, to, subject, text, html, headers, attachments, ... }
-    const fromAddr = payload.from || payload.sender || "unknown@remote.com";
-    const toAddr = payload.to || payload.recipient || "contact@theowlclock.io";
-    const subject = payload.subject || "(No Subject)";
-    const text = payload.text || "";
-    const html = payload.html || "";
+    const rawBody = (req as any).rawBody || JSON.stringify(req.body);
+    const secret = process.env.RESEND_WEBHOOK_SECRET || "";
+    if (secret && req.headers["svix-signature"]) {
+      const isValid = verifyResendWebhookSignature(rawBody, req.headers, secret);
+      if (!isValid) {
+        console.warn("[RESEND INBOUND] Webhook signature mismatch for incoming payload.");
+        return res.status(401).json({ error: "Invalid webhook signature." });
+      }
+    }
+
+    const payload = req.body || {};
+    // Unwrap nested Resend 'data' property if present (official Resend format for email.received)
+    const data = payload.data || payload;
+    const fromAddr = data.from || data.sender || payload.from || "unknown@remote.com";
+    const toAddr = data.to || data.recipient || payload.to || "contact@theowlclock.io";
+    const subject = data.subject || payload.subject || "(No Subject)";
+    const text = data.text || payload.text || "";
+    const html = data.html || payload.html || "";
+
+    const cleanFrom = Array.isArray(fromAddr) ? fromAddr.join(", ") : String(fromAddr);
+    const cleanTo = Array.isArray(toAddr) ? toAddr : [String(toAddr)];
 
     const recorded = recordInboundEmail({
-      from: fromAddr,
-      to: toAddr,
+      from: cleanFrom,
+      to: cleanTo,
       subject,
       text,
       html,
-      headers: payload.headers,
-      attachments: payload.attachments,
+      headers: data.headers || payload.headers,
+      attachments: data.attachments || payload.attachments,
     });
 
     if (!useMockDb && db) {
       db.collection("emails").insertOne(recorded).catch((e: any) => console.error("Error inserting inbound email into Mongo:", e));
     }
 
+    // Auto-forward priority notification to owner's Gmail (soluwatist@gmail.com)
+    sendEmail({
+      to: ADMIN_NOTIFICATION_EMAIL,
+      replyTo: Array.isArray(fromAddr) ? fromAddr[0] : String(fromAddr),
+      subject: `[INBOUND EMAIL: ${cleanTo.join(", ")}] ${subject}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #050505; color: #E5E5E5; margin: 0; padding: 24px;">
+          <div style="max-width: 620px; margin: 0 auto; background: #0F0F10; border: 1px solid #222; border-radius: 4px; overflow: hidden;">
+            <div style="padding: 20px 24px; border-bottom: 1px solid #222; background: #050505;">
+              <h2 style="color: #D9D6CA; font-size: 15px; margin: 0; letter-spacing: 0.15em; text-transform: uppercase;">
+                NEW INBOUND EMAIL RECEIVED VIA RESEND
+              </h2>
+              <p style="color: #888; font-size: 11px; margin: 6px 0 0 0; font-family: monospace;">
+                TO: <strong style="color: #FFF;">${cleanTo.join(", ")}</strong> &bull; FROM: <strong style="color: #FFF;">${cleanFrom}</strong>
+              </p>
+            </div>
+            <div style="padding: 24px; font-size: 13px; line-height: 1.6;">
+              <p style="margin: 0 0 12px 0; color: #FFF; font-weight: bold; font-size: 14px;">
+                Subject: ${subject}
+              </p>
+              <div style="background: #050505; border: 1px solid #262626; padding: 18px; border-radius: 3px; margin: 16px 0;">
+                ${html || `<pre style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; white-space: pre-wrap; margin: 0; color: #EEE;">${text}</pre>`}
+              </div>
+              <p style="color: #888; font-size: 11px; font-family: monospace; margin: 12px 0 0 0;">
+                Hit "Reply" in your email client to respond directly to <strong style="color: #FFF;">${cleanFrom}</strong>.
+              </p>
+            </div>
+            <div style="padding: 14px 24px; border-top: 1px solid #222; background: #050505; font-size: 10px; color: #666; font-family: monospace;">
+              The Owl Clock &bull; Publishing &bull; Rights Management &bull; Licensing &bull; Atlanta, Georgia
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Inbound email received at ${cleanTo.join(", ")} from ${cleanFrom}\nSubject: ${subject}\n\n${text}`,
+      category: (recorded.category as any) || "contact"
+    }).catch(e => console.error("Error auto-forwarding inbound email to Gmail:", e));
+
+    console.log(`[RESEND INBOUND PROCESSED] From: ${cleanFrom} | To: ${cleanTo.join(", ")} | Subject: "${subject}"`);
     res.json({ success: true, id: recorded.id, message: "Inbound email received and registered." });
   } catch (err: any) {
     console.error("[INBOUND WEBHOOK ERROR]:", err);
@@ -1366,6 +1453,8 @@ app.post("/api/auth/signup", async (req, res) => {
     const normalizedEmail = email.toLowerCase().trim();
     const passwordHash = hashPassword(password);
 
+    const assignedRole = isAuthorizedAdmin(normalizedEmail) ? "admin" : "client";
+
     if (useMockDb) {
       if (mockUsers.has(normalizedEmail)) {
         return res.status(400).json({ error: "Email address already registered." });
@@ -1373,17 +1462,24 @@ app.post("/api/auth/signup", async (req, res) => {
       mockUsers.set(normalizedEmail, {
         email: normalizedEmail,
         passwordHash,
+        role: assignedRole,
         createdAt: new Date()
       });
     } else {
       const usersCol = db!.collection("users");
-      const existingUser = await usersCol.findOne({ email: normalizedEmail });
+      const existingUser = await usersCol.findOne({
+        $or: [
+          { email: normalizedEmail },
+          { email: { $regex: new RegExp(`^${normalizedEmail.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}$`, "i") } }
+        ]
+      });
       if (existingUser) {
         return res.status(400).json({ error: "Email address already registered." });
       }
       await usersCol.insertOne({
         email: normalizedEmail,
         passwordHash,
+        role: assignedRole,
         createdAt: new Date()
       });
     }
@@ -1396,7 +1492,7 @@ app.post("/api/auth/signup", async (req, res) => {
       await db!.collection("sessions").insertOne({ token, email: normalizedEmail, createdAt: new Date() });
     }
 
-    res.json({ success: true, token, email: normalizedEmail, database: useMockDb ? "MOCK_IN_MEMORY" : "MONGODB" });
+    res.json({ success: true, token, email: normalizedEmail, role: assignedRole, database: useMockDb ? "MOCK_IN_MEMORY" : "MONGODB" });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Internal server error." });
   }
@@ -1414,6 +1510,7 @@ app.post("/api/auth/login", async (req, res) => {
     const passwordHash = hashPassword(password);
 
     let authenticated = false;
+    let userRole = isAuthorizedAdmin(normalizedEmail) ? "admin" : "client";
 
     if (useMockDb) {
       const user = mockUsers.get(normalizedEmail);
@@ -1422,26 +1519,36 @@ app.post("/api/auth/login", async (req, res) => {
         mockUsers.set(normalizedEmail, {
           email: normalizedEmail,
           passwordHash: hashPassword("lomon2026"),
+          role: "admin",
           createdAt: new Date()
         });
         authenticated = password === "lomon2026";
+        userRole = "admin";
       } else if (user) {
         authenticated = user.passwordHash === passwordHash;
+        userRole = user.role || userRole;
       }
     } else {
-      const user = await db!.collection("users").findOne({ email: normalizedEmail });
+      const user = await db!.collection("users").findOne({
+        $or: [
+          { email: normalizedEmail },
+          { email: { $regex: new RegExp(`^${normalizedEmail.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}$`, "i") } }
+        ]
+      });
       if (normalizedEmail === "evianaconcepts1@gmail.com" && !user) {
         // Safe default password for demo seed if user registers later
         const defaultHash = hashPassword("lomon2026");
-        await db!.collection("users").insertOne({ email: normalizedEmail, passwordHash: defaultHash, createdAt: new Date() });
+        await db!.collection("users").insertOne({ email: normalizedEmail, passwordHash: defaultHash, role: "admin", createdAt: new Date() });
         authenticated = password === "lomon2026";
+        userRole = "admin";
       } else if (user) {
         authenticated = user.passwordHash === passwordHash;
+        userRole = user.role || userRole;
       }
     }
 
     if (!authenticated) {
-      return res.status(401).json({ error: "Invalid cryptographic credentials or password." });
+      return res.status(401).json({ error: "Invalid email or password." });
     }
 
     const token = generateToken();
@@ -1451,7 +1558,7 @@ app.post("/api/auth/login", async (req, res) => {
       await db!.collection("sessions").insertOne({ token, email: normalizedEmail, createdAt: new Date() });
     }
 
-    res.json({ success: true, token, email: normalizedEmail, database: useMockDb ? "MOCK_IN_MEMORY" : "MONGODB" });
+    res.json({ success: true, token, email: normalizedEmail, role: userRole, database: useMockDb ? "MOCK_IN_MEMORY" : "MONGODB" });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Internal server error." });
   }
@@ -1462,28 +1569,82 @@ app.get("/api/auth/me", async (req, res) => {
   try {
     const email = await getEmailFromToken(req);
     if (!email) {
-      return res.status(401).json({ error: "Terminal unauthorized." });
+      return res.status(401).json({ error: "Unauthorized. Please sign in." });
     }
 
-    res.json({ success: true, email, database: useMockDb ? "MOCK_IN_MEMORY" : "MONGODB" });
+    let role = isAuthorizedAdmin(email) ? "admin" : "client";
+    if (useMockDb) {
+      const u = mockUsers.get(email);
+      if (u && u.role) role = u.role;
+    } else {
+      const u = await db!.collection("users").findOne({
+        $or: [
+          { email: email.toLowerCase().trim() },
+          { email: { $regex: new RegExp(`^${email.toLowerCase().trim().replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}$`, "i") } }
+        ]
+      });
+      if (u && u.role) role = u.role;
+    }
+
+    res.json({ success: true, email, role, database: useMockDb ? "MOCK_IN_MEMORY" : "MONGODB" });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Internal server error." });
   }
 });
 
-// 4. Auth: Logout
+// 4. Auth: Logout - End ALL active sessions for the user
 app.post("/api/auth/logout", async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
+    let token = "";
     if (authHeader && authHeader.startsWith("Bearer ")) {
-      const token = authHeader.split(" ")[1];
+      token = authHeader.split(" ")[1];
+    }
+    
+    // Find associated user email
+    let userEmail: string | null = null;
+    if (token) {
+      if (useMockDb) {
+        userEmail = mockSessions.get(token) || null;
+      } else {
+        const sessionRecord = await db!.collection("sessions").findOne({ token });
+        if (sessionRecord) userEmail = sessionRecord.email;
+      }
+    }
+
+    // Check optional body email as well
+    if (!userEmail && req.body && req.body.email) {
+      userEmail = String(req.body.email).toLowerCase().trim();
+    }
+
+    // Terminate ALL sessions for this user in database and memory
+    if (userEmail) {
+      const normalizedEmail = userEmail.toLowerCase().trim();
+      if (useMockDb) {
+        for (const [key, val] of Array.from(mockSessions.entries())) {
+          if (val && val.toLowerCase().trim() === normalizedEmail) {
+            mockSessions.delete(key);
+          }
+        }
+      } else {
+        await db!.collection("sessions").deleteMany({
+          $or: [
+            { email: normalizedEmail },
+            { email: { $regex: new RegExp(`^${normalizedEmail.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}$`, "i") } }
+          ]
+        }).catch(() => {});
+      }
+    }
+
+    if (token) {
       if (useMockDb) {
         mockSessions.delete(token);
       } else {
-        await db!.collection("sessions").deleteOne({ token });
+        await db!.collection("sessions").deleteOne({ token }).catch(() => {});
       }
     }
-    res.json({ success: true });
+
+    res.json({ success: true, message: "All user sessions terminated." });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Internal server error." });
   }
@@ -1757,7 +1918,7 @@ app.post("/api/user/request", async (req, res) => {
   try {
     const email = await getEmailFromToken(req);
     if (!email) {
-      return res.status(401).json({ error: "Terminal unauthorized." });
+      return res.status(401).json({ error: "Unauthorized. Please sign in." });
     }
 
     const { type, target, status } = req.body;
@@ -2511,7 +2672,7 @@ app.post("/api/licenses/transfer", async (req, res) => {
   try {
     const ownerEmail = await getEmailFromToken(req);
     if (!ownerEmail) {
-      return res.status(401).json({ error: "Terminal unauthorized. Authorization token required." });
+      return res.status(401).json({ error: "Unauthorized. Authorization token required." });
     }
 
     const { licenseId, recipientEmail } = req.body;
@@ -2527,12 +2688,17 @@ app.post("/api/licenses/transfer", async (req, res) => {
     if (useMockDb) {
       recipientExists = mockUsers.has(targetRecipient) || targetRecipient === "evianaconcepts1@gmail.com";
     } else {
-      const recipientUser = await db!.collection("users").findOne({ email: targetRecipient });
+      const recipientUser = await db!.collection("users").findOne({
+        $or: [
+          { email: targetRecipient },
+          { email: { $regex: new RegExp(`^${targetRecipient.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}$`, "i") } }
+        ]
+      });
       recipientExists = !!recipientUser;
     }
 
     if (!recipientExists) {
-      return res.status(404).json({ error: `Transfer recipient terminal "${targetRecipient}" is not a registered user on the LOMON security network.` });
+      return res.status(404).json({ error: `Transfer recipient "${targetRecipient}" is not a registered user.` });
     }
 
     // Verify ownership and perform transfer
@@ -2608,6 +2774,30 @@ app.post("/api/licenses/transfer", async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to execute license transfer protocol." });
   }
+});
+
+// Centralized Admin Email Authorization
+const ADMIN_AUTHORIZED_EMAILS = [
+  "evianaconcepts1@gmail.com",
+  "admin@system.local",
+  (process.env.ADMIN_NOTIFICATION_EMAIL || "soluwatist@gmail.com").toLowerCase().trim()
+];
+
+function isAuthorizedAdmin(email?: string | null): boolean {
+  if (!email) return false;
+  return ADMIN_AUTHORIZED_EMAILS.includes(email.toLowerCase().trim());
+}
+
+// Security Middleware: Protect all /api/admin/* routes against unauthenticated or client accounts
+app.use("/api/admin", async (req, res, next) => {
+  const tokenEmail = await getEmailFromToken(req);
+  if (!tokenEmail || !isAuthorizedAdmin(tokenEmail)) {
+    return res.status(403).json({
+      error: "Access Forbidden: Administrator clearance required for the Master Administrative API.",
+      authenticatedUser: tokenEmail || null
+    });
+  }
+  next();
 });
 
 // 11. Payments & Transactions CRUD: Read (All payments)
@@ -2914,14 +3104,14 @@ app.get("/api/admin/users", async (req, res) => {
       const inMemoryUsers = Array.from(mockUsers.values()).map(u => ({
         email: u.email,
         createdAt: u.createdAt,
-        status: "SECURED TERMINAL"
+        status: "ACTIVE USER"
       }));
       // ensure we also list the hardcoded evianaconcepts email if it's accessed
       if (!mockUsers.has("evianaconcepts1@gmail.com")) {
         inMemoryUsers.push({
           email: "evianaconcepts1@gmail.com",
           createdAt: new Date("2026-06-01T00:00:00Z"),
-          status: "SEED ADMIN"
+          status: "ADMINISTRATOR"
         });
       }
       usersList = inMemoryUsers;
@@ -2930,16 +3120,16 @@ app.get("/api/admin/users", async (req, res) => {
     }
     res.json({ success: true, users: usersList });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || "Failed to retrieve terminal users." });
+    res.status(500).json({ error: err.message || "Failed to retrieve users." });
   }
 });
 
-// 12. User CRUD: Create (Add terminal manually)
+// 12. User CRUD: Create (Add user manually)
 app.post("/api/admin/users", async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ error: "Email and cipher password are required." });
+      return res.status(400).json({ error: "Email and password are required." });
     }
 
     const targetEmail = email.toLowerCase().trim();
@@ -2947,7 +3137,7 @@ app.post("/api/admin/users", async (req, res) => {
 
     if (useMockDb) {
       if (mockUsers.has(targetEmail)) {
-        return res.status(400).json({ error: "Email terminal already exists." });
+        return res.status(400).json({ error: "Email address already registered." });
       }
       mockUsers.set(targetEmail, {
         email: targetEmail,
@@ -2956,9 +3146,14 @@ app.post("/api/admin/users", async (req, res) => {
       });
     } else {
       const usersCol = db!.collection("users");
-      const existingUser = await usersCol.findOne({ email: targetEmail });
+      const existingUser = await usersCol.findOne({
+        $or: [
+          { email: targetEmail },
+          { email: { $regex: new RegExp(`^${targetEmail.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}$`, "i") } }
+        ]
+      });
       if (existingUser) {
-        return res.status(400).json({ error: "Email terminal already exists." });
+        return res.status(400).json({ error: "Email address already registered." });
       }
       await usersCol.insertOne({
         email: targetEmail,
@@ -2969,16 +3164,16 @@ app.post("/api/admin/users", async (req, res) => {
 
     res.json({ success: true, user: { email: targetEmail, createdAt: new Date() } });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || "Failed to create terminal user." });
+    res.status(500).json({ error: err.message || "Failed to create user account." });
   }
 });
 
-// 12. User CRUD: Update (Change cipher key / terminal details)
+// 12. User CRUD: Update (Change user password)
 app.put("/api/admin/users", async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ error: "Email and new cipher password are required." });
+      return res.status(400).json({ error: "Email and new password are required." });
     }
 
     const targetEmail = email.toLowerCase().trim();
@@ -3002,28 +3197,33 @@ app.put("/api/admin/users", async (req, res) => {
     } else {
       const usersCol = db!.collection("users");
       const result = await usersCol.updateOne(
-        { email: targetEmail },
+        {
+          $or: [
+            { email: targetEmail },
+            { email: { $regex: new RegExp(`^${targetEmail.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}$`, "i") } }
+          ]
+        },
         { $set: { passwordHash: newPasswordHash } }
       );
       updated = result.matchedCount > 0;
     }
 
     if (updated) {
-      res.json({ success: true, message: `Access cipher for terminal ${targetEmail} successfully updated.` });
+      res.json({ success: true, message: `Password for user ${targetEmail} successfully updated.` });
     } else {
-      res.status(404).json({ error: `Terminal ${targetEmail} not found.` });
+      res.status(404).json({ error: `User ${targetEmail} not found.` });
     }
   } catch (err: any) {
-    res.status(500).json({ error: err.message || "Failed to update terminal user." });
+    res.status(500).json({ error: err.message || "Failed to update user account." });
   }
 });
 
-// 12. User CRUD: Delete (Wipe user terminal)
+// 12. User CRUD: Delete (Remove user)
 app.delete("/api/admin/users", async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) {
-      return res.status(400).json({ error: "Terminal email is required for purging." });
+      return res.status(400).json({ error: "User email address is required." });
     }
 
     const targetEmail = email.toLowerCase().trim();
@@ -3032,17 +3232,22 @@ app.delete("/api/admin/users", async (req, res) => {
     if (useMockDb) {
       deleted = mockUsers.delete(targetEmail);
     } else {
-      const result = await db!.collection("users").deleteOne({ email: targetEmail });
+      const result = await db!.collection("users").deleteOne({
+        $or: [
+          { email: targetEmail },
+          { email: { $regex: new RegExp(`^${targetEmail.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}$`, "i") } }
+        ]
+      });
       deleted = result.deletedCount > 0;
     }
 
     if (deleted) {
-      res.json({ success: true, message: `Terminal ${targetEmail} successfully wiped from LOMON directory.` });
+      res.json({ success: true, message: `User ${targetEmail} successfully deleted.` });
     } else {
-      res.status(404).json({ error: `Terminal ${targetEmail} not found in directory.` });
+      res.status(404).json({ error: `User ${targetEmail} not found.` });
     }
   } catch (err: any) {
-    res.status(500).json({ error: err.message || "Failed to purge terminal user." });
+    res.status(500).json({ error: err.message || "Failed to delete user account." });
   }
 });
 

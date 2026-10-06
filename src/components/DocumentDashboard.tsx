@@ -791,7 +791,7 @@ STATUS        : ${(doc.status || "").toUpperCase()}
 SIGNATURE     : ${(doc.signatureStatus || "").toUpperCase()}
 VERIFICATION  : ${(doc.verificationStatus || "").toUpperCase()}
 
-MD5 CIPHER BLOCK HASH:
+VERIFICATION SECURITY HASH:
 0x${Math.floor(Math.random() * 1000000000).toString(16).toUpperCase()}${Math.floor(Math.random() * 1000000000).toString(16).toUpperCase()}
 
 SYSTEM ARCHIVE RECORD CO-SIGNATURE SAVED SECURELY.

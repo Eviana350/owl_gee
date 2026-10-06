@@ -138,7 +138,7 @@ export default function VaultSection() {
             <div className="flex items-center justify-center md:justify-start gap-2">
               <Key size={14} className="text-gold-muted" />
               <h3 className="text-lg font-mono text-zinc-300 uppercase tracking-widest">
-                CIPHER MACHINE
+                AUDIO VAULT KEYPAD
               </h3>
             </div>
             <p className="text-[11px] text-zinc-500 font-sans font-light">

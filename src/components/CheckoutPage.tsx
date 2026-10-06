@@ -524,7 +524,7 @@ export default function CheckoutPage({
           {!isLoggedIn && (
             <div className="flex items-center gap-2 shrink-0">
               <span className={`whitespace-nowrap ${step === "auth" ? "text-[#D9D6CA] font-extrabold" : "text-zinc-500"}`}>
-                02. TERMINAL ACCESS
+                02. ACCOUNT ACCESS
               </span>
               <ChevronRight size={10} className="text-zinc-650 shrink-0" />
             </div>
@@ -685,7 +685,7 @@ export default function CheckoutPage({
                   </motion.div>
                 )}
 
-                {/* STEP 1.5: TERMINAL ACCESS AUTH VIEW */}
+                {/* STEP 1.5: ACCOUNT ACCESS AUTH VIEW */}
                 {step === "auth" && (
                   <motion.div
                     key="auth-view"
@@ -696,10 +696,10 @@ export default function CheckoutPage({
                   >
                     <div className="space-y-2 border-b border-zinc-900 pb-4 text-center">
                       <h2 className="text-xl font-extrabold text-white tracking-[0.2em] uppercase font-sans">
-                        TERMINAL ACCESS
+                        ACCOUNT ACCESS
                       </h2>
                       <p className="text-zinc-500 text-[10px] tracking-widest uppercase font-mono">
-                        Secure Archive Clearance & Signature Bond
+                        Sign in or create an account to complete your order
                       </p>
                     </div>
 
@@ -723,7 +723,7 @@ export default function CheckoutPage({
                         }}
                         className={`flex-1 py-2.5 text-center cursor-pointer transition-all duration-200 ${isSigningUp ? "bg-[#D9D6CA] text-black font-extrabold shadow-inner" : "text-zinc-500 hover:text-white bg-black/40"}`}
                       >
-                        Request Clearance (Sign Up)
+                        Sign Up
                       </button>
                     </div>
 
@@ -736,12 +736,12 @@ export default function CheckoutPage({
 
                       <div className="space-y-1.5 text-left">
                         <label className="text-[9px] text-zinc-500 font-mono uppercase tracking-[0.15em] block">
-                          Secure Email Address *
+                          Email Address *
                         </label>
                         <input 
                           type="email"
                           required
-                          placeholder="EMAIL@DOMAIN.COM"
+                          placeholder="name@example.com"
                           value={authEmail}
                           onChange={(e) => setAuthEmail(e.target.value)}
                           className="w-full bg-[#0c0c0c] border border-zinc-900 rounded-[4px] py-3 px-4 text-xs text-zinc-300 outline-none focus:border-[#D9D6CA] transition-all"
@@ -750,7 +750,7 @@ export default function CheckoutPage({
 
                       <div className="space-y-1.5 text-left">
                         <label className="text-[9px] text-zinc-500 font-mono uppercase tracking-[0.15em] block">
-                          Access Cipher Key (Password) *
+                          Password *
                         </label>
                         <input 
                           type="password"
@@ -768,7 +768,7 @@ export default function CheckoutPage({
                           disabled={isSubmittingAuth}
                           className="w-full bg-[#D9D6CA] text-black hover:bg-white font-sans font-extrabold text-[12px] tracking-widest py-3.5 transition-colors duration-200 rounded-[4px] cursor-pointer shadow-lg uppercase"
                         >
-                          {isSubmittingAuth ? "PROCESSING CIPHERS..." : isSigningUp ? "REQUEST CLEARANCE & SIGN UP" : "ESTABLISH CONNECTION"}
+                          {isSubmittingAuth ? "PLEASE WAIT..." : isSigningUp ? "CREATE ACCOUNT" : "SIGN IN"}
                         </button>
                       </div>
 
@@ -1214,7 +1214,7 @@ export default function CheckoutPage({
 
                 {step === "auth" && (
                   <div className="p-4 bg-zinc-950/60 border border-zinc-900 rounded-[4px] text-[10px] text-zinc-400 text-center leading-relaxed font-mono uppercase tracking-wider">
-                    Please secure your terminal connection to proceed with the clearance certificate download.
+                    Please sign in to proceed with your license agreement and download.
                   </div>
                 )}
 
@@ -1334,7 +1334,7 @@ export default function CheckoutPage({
             </div>
 
             <p className="text-[11.5px] text-zinc-400 font-sans font-light leading-relaxed mb-4">
-              All uncompressed master WAV files and professional tracking stems have been deployed to your secure customer terminal. Your license certificate and stem downloads link have been forwarded to <strong className="text-white">{email}</strong>.
+              All uncompressed master WAV files and professional tracking stems are now available in your account. Your license certificate and download links have been sent to <strong className="text-white">{email}</strong>.
             </p>
 
             {/* Dynamic Beat ZIP & License Agreement Download Actions */}

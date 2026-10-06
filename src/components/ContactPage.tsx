@@ -418,10 +418,10 @@ export default function ContactPage({
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-[11px] font-mono font-bold tracking-[0.2em] bg-white text-black hover:bg-zinc-200 px-6 py-3 rounded-sm uppercase transition-all cursor-pointer disabled:opacity-50"
                 >
                   {isSubmitting ? (
-                    <span>DISPATCHING CIPHER...</span>
+                    <span>SENDING MESSAGE...</span>
                   ) : (
                     <>
-                      <span>TRANSMIT MESSAGE</span>
+                      <span>SEND MESSAGE</span>
                       <Send size={12} />
                     </>
                   )}

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   X, Check, AlertCircle, FileText, Search, ShieldCheck, 
@@ -8,6 +8,7 @@ import ClientDashboard from "./ClientDashboard";
 import LicenseVerificationPage from "./LicenseVerificationPage";
 import JSZip from "jszip";
 import { openOrDownloadLicenseAgreement } from "../lib/licenseAgreements";
+import { isAdminUser } from "../lib/authUtils";
 
 interface TransmissionsOverlayProps {
   isOpen: boolean;
@@ -18,7 +19,7 @@ interface TransmissionsOverlayProps {
   userEmail?: string;
   isLoggedIn?: boolean;
   currentUserEmail?: string;
-  onLoginSuccess?: (email: string, token: string) => void;
+  onLoginSuccess?: (email: string, token: string, role?: string) => void;
   userLicenses?: any[];
   userRequests?: any[];
   userEmailLogs?: any[];
@@ -215,15 +216,32 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
   // Custom Login State inside TransmissionsOverlay
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [loginConfirmPassword, setLoginConfirmPassword] = useState("");
   const [loginIsRegister, setLoginIsRegister] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
 
+  useEffect(() => {
+    if (isOpen) {
+      if (type === "signup" || type === "register") {
+        setLoginIsRegister(true);
+      } else if (type === "login") {
+        setLoginIsRegister(false);
+      }
+      setLoginError("");
+      setLoginConfirmPassword("");
+    }
+  }, [isOpen, type]);
+
   const handleOverlayLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) {
-      setLoginError("Credentials cannot be null.");
+      setLoginError("Please enter your email and password.");
+      return;
+    }
+    if (loginIsRegister && loginPassword !== loginConfirmPassword) {
+      setLoginError("Passwords do not match. Please re-enter.");
       return;
     }
     setLoginError("");
@@ -239,19 +257,24 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
       if (res.ok && data.success) {
         setLoginSuccess(true);
         if (onLoginSuccess) {
-          onLoginSuccess(data.email, data.token);
+          onLoginSuccess(data.email, data.token, data.role);
         }
         setTimeout(() => {
           onClose();
           setLoginEmail("");
           setLoginPassword("");
+          setLoginConfirmPassword("");
           setLoginSuccess(false);
-        }, 1500);
+        }, 1000);
       } else {
-        setLoginError(data.error || "Authentication handshake rejected.");
+        if (data.error && data.error.toLowerCase().includes("already registered")) {
+          setLoginError("This email address is already registered. Please click 'SIGN IN' above to log in.");
+        } else {
+          setLoginError(data.error || "Sign in failed. Please check your email and password.");
+        }
       }
     } catch (err: any) {
-      setLoginError("Connection refused: " + err.message);
+      setLoginError("Unable to connect to the server. Please check your internet connection and try again.");
     } finally {
       setLoginLoading(false);
     }
@@ -449,13 +472,13 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setAdminSuccessMsg(userFormIsEdit ? "Access cipher updated successfully." : "Terminal account registered successfully.");
+        setAdminSuccessMsg(userFormIsEdit ? "Password updated successfully." : "User account registered successfully.");
         setShowUserForm(false);
         setUserFormEmail("");
         setUserFormPassword("");
         fetchAdminData();
       } else {
-        setAdminError(data.error || "Failed to save user terminal.");
+        setAdminError(data.error || "Failed to save user account.");
       }
     } catch (err: any) {
       setAdminError("Connection lost: " + err.message);
@@ -480,10 +503,10 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setAdminSuccessMsg("Terminal successfully deleted from secure indices.");
+        setAdminSuccessMsg("User account deleted successfully.");
         fetchAdminData();
       } else {
-        setAdminError(data.error || "Failed to purge user terminal.");
+        setAdminError(data.error || "Failed to delete user account.");
       }
     } catch (err: any) {
       setAdminError("Connection lost: " + err.message);
@@ -568,7 +591,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
               [ SYSTEM ADMINISTRATIVE CONSOLE ]
             </span>
             <p className="text-zinc-500 text-[10px] leading-tight uppercase">
-              Manage secure terminal access and inspect transactional indices.
+              Manage user accounts and transactions.
             </p>
           </div>
           <button 
@@ -600,7 +623,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
             }}
             className={`flex-1 py-2 text-center text-[10px] font-mono tracking-wider uppercase font-bold transition-all cursor-pointer ${adminActiveTab === "users" ? "text-white border-b-2 border-white bg-zinc-900/50" : "text-zinc-500 hover:text-zinc-300"}`}
           >
-            Terminal Registry ({adminUsers.length})
+            User Accounts ({adminUsers.length})
           </button>
         </div>
 
@@ -652,10 +675,10 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
                   <input 
                     type="email"
                     required
-                    placeholder="User Terminal Email"
+                    placeholder="User Email Address"
                     value={paymentFormEmail}
                     onChange={(e) => setPaymentFormEmail(e.target.value)}
-                    className="w-full bg-black border border-zinc-850 px-2.5 py-1.5 text-[10px] font-mono text-[#D9D6CA] outline-none focus:border-zinc-700 uppercase"
+                    className="w-full bg-black border border-zinc-850 px-2.5 py-1.5 text-[10px] font-mono text-[#D9D6CA] outline-none focus:border-zinc-700"
                   />
                   <div className="grid grid-cols-2 gap-2">
                     <input 
@@ -745,7 +768,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
         {adminActiveTab === "users" && (
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-[9px] text-zinc-500 font-mono uppercase">AUTHENTICATED TERMINALS</span>
+              <span className="text-[9px] text-zinc-500 font-mono uppercase">USER ACCOUNTS</span>
               <button
                 onClick={() => {
                   setUserFormIsEdit(false);
@@ -756,7 +779,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
                 }}
                 className="bg-white hover:bg-zinc-200 text-black font-mono font-bold text-[8.5px] px-2 py-1 transition-colors cursor-pointer"
               >
-                {showUserForm ? "Close Form ✕" : "+ Ingest User"}
+                {showUserForm ? "Close Form ✕" : "+ Add User"}
               </button>
             </div>
 
@@ -769,7 +792,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
                 className="bg-neutral-950 border border-zinc-900 p-3 rounded-sm space-y-2.5"
               >
                 <span className="text-[8.5px] text-zinc-400 font-mono font-bold block uppercase">
-                  {userFormIsEdit ? `Reset Access Cipher for ${userFormEmail}` : "Register New Terminal Terminal"}
+                  {userFormIsEdit ? `Reset Password for ${userFormEmail}` : "Register New User Account"}
                 </span>
                 
                 <div className="space-y-2">
@@ -777,15 +800,15 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
                     type="email"
                     required
                     disabled={userFormIsEdit}
-                    placeholder="Terminal Email address"
+                    placeholder="User email address"
                     value={userFormEmail}
                     onChange={(e) => setUserFormEmail(e.target.value)}
-                    className="w-full bg-black border border-zinc-850 px-2.5 py-1.5 text-[10px] font-mono text-[#D9D6CA] disabled:text-zinc-650 outline-none focus:border-zinc-700 uppercase"
+                    className="w-full bg-black border border-zinc-850 px-2.5 py-1.5 text-[10px] font-mono text-[#D9D6CA] disabled:text-zinc-650 outline-none focus:border-zinc-700"
                   />
                   <input 
                     type="password"
                     required
-                    placeholder={userFormIsEdit ? "New Access Code (Cipher)" : "Access Code (Cipher)"}
+                    placeholder={userFormIsEdit ? "New Password" : "Password"}
                     value={userFormPassword}
                     onChange={(e) => setUserFormPassword(e.target.value)}
                     className="w-full bg-black border border-zinc-850 px-2.5 py-1.5 text-[10px] font-mono text-[#D9D6CA] outline-none focus:border-zinc-700"
@@ -796,7 +819,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
                   type="submit"
                   className="w-full bg-white hover:bg-zinc-200 text-black font-mono font-bold text-[9px] py-2 transition-colors cursor-pointer uppercase"
                 >
-                  {userFormIsEdit ? "Save Cipher Code" : "Provision Terminal Network"}
+                  {userFormIsEdit ? "Save Password" : "Create User Account"}
                 </button>
               </motion.form>
             )}
@@ -805,7 +828,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
             <div className="max-h-[220px] overflow-y-auto space-y-2 pr-1 border border-zinc-900 bg-neutral-950 p-2 rounded-sm">
               {adminUsers.length === 0 ? (
                 <div className="text-zinc-650 font-mono text-[9px] uppercase text-center py-6">
-                  No terminal index directories found.
+                  No user accounts found.
                 </div>
               ) : (
                 adminUsers.map((usr: any) => (
@@ -830,14 +853,14 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
                           }}
                           className="text-zinc-400 hover:text-white uppercase cursor-pointer text-[8px]"
                         >
-                          Set Cipher
+                          Reset Password
                         </button>
                         {usr.email !== "evianaconcepts1@gmail.com" && (
                           <button
                             onClick={() => handleDeleteUser(usr.email)}
                             className="text-red-500 hover:text-red-400 uppercase cursor-pointer text-[8px]"
                           >
-                            Purge
+                            Delete
                           </button>
                         )}
                       </div>
@@ -1037,7 +1060,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
               </h4>
 
               <p className="text-zinc-450 text-[10px] leading-relaxed uppercase">
-                The Master Clearance Agreement has been digitally executed, archived, and transmitted to your verified terminal ({userEmail}).
+                The Master Clearance Agreement has been digitally executed, archived, and transmitted to your verified account ({userEmail}).
               </p>
 
               <div className="border border-zinc-900 bg-black p-3 text-[9px] text-zinc-500 font-mono uppercase text-left space-y-1">
@@ -1464,10 +1487,10 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
       return (
         <div className="space-y-4 text-left">
           <ClientDashboard
-            currentUserEmail={currentUserEmail || userEmail || "evianaconcepts1@gmail.com"}
+            currentUserEmail={currentUserEmail || userEmail || ""}
             userLicenses={userLicenses}
             onClose={onClose}
-            onOpenAdmin={onOpenAdmin}
+            onOpenAdmin={isLoggedIn && isAdminUser(currentUserEmail || userEmail) ? onOpenAdmin : undefined}
             onRefreshData={onRefreshData}
             initialSection="01_MY_FRAGMENTS"
           />
@@ -1496,7 +1519,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
           <div className="space-y-2.5 border-t border-zinc-900 pt-3">
             {!isLoggedIn ? (
               <div className="text-zinc-500 font-mono text-[9px] uppercase text-center py-8 border border-dashed border-zinc-900 rounded-[2px] px-4 leading-relaxed">
-                Terminal authorization required. Please establish a secure connection via checkout or support node to access active certificates.
+                Please sign in to access your active certificates.
               </div>
             ) : (userLicenses && userLicenses.length > 0) ? (
               userLicenses.map((license, idx) => (
@@ -1507,7 +1530,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
                   </div>
                   <div className="text-[9px] text-zinc-400 space-y-1">
                     <div>COMPOSITION: {license.song}</div>
-                    <div>TERMINAL HOLDER: {currentUserEmail || userEmail}</div>
+                    <div>ACCOUNT: {currentUserEmail || userEmail}</div>
                     <div className="truncate">SECURE HASH: {license.hash}</div>
                   </div>
                   <div className="text-[8px] text-zinc-500 text-right pt-1 uppercase">
@@ -1517,7 +1540,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
               ))
             ) : (
               <div className="text-zinc-500 font-mono text-[9px] uppercase text-center py-8 border border-dashed border-zinc-900 rounded-[2px] px-4 leading-relaxed">
-                No active certificate records found for terminal {currentUserEmail}.
+                No active certificate records found for account {currentUserEmail}.
               </div>
             )}
           </div>
@@ -1543,7 +1566,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
           <div className="space-y-2 border-t border-zinc-900 pt-3">
             {!isLoggedIn ? (
               <div className="text-zinc-500 font-mono text-[9px] uppercase text-center py-8 border border-dashed border-zinc-900 rounded-[2px] px-4 leading-relaxed">
-                Terminal authorization required. Connect your terminal to access authorized high-quality master file downloads.
+                Please sign in to access your authorized master file downloads.
               </div>
             ) : (userLicenses && userLicenses.length > 0) ? (
               userLicenses.flatMap((license) => {
@@ -1662,7 +1685,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
           <div className="space-y-2.5 border-t border-zinc-900 pt-3">
             {!isLoggedIn ? (
               <div className="text-zinc-500 font-mono text-[9px] uppercase text-center py-8 border border-dashed border-zinc-900 rounded-[2px] px-4 leading-relaxed">
-                Terminal authorization required. Please establish a secure connection to track active clearance requests.
+                Please sign in to track active clearance requests.
               </div>
             ) : (userRequests && userRequests.length > 0) ? (
               userRequests.map((req) => (
@@ -1682,7 +1705,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
               ))
             ) : (
               <div className="text-zinc-500 font-mono text-[9px] uppercase text-center py-8 border border-dashed border-zinc-900 rounded-[2px] px-4 leading-relaxed">
-                No active clearance or publishing requests found for terminal {currentUserEmail}.
+                No active clearance or publishing requests found for account {currentUserEmail}.
               </div>
             )}
           </div>
@@ -1750,7 +1773,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
                 SECURE BRIEF RECEIVED
               </div>
               <p className="text-[9.5px] text-zinc-400 uppercase leading-relaxed">
-                An Enterprise Curator will establish encrypted contact at your terminal email within 12 business hours.
+                An Enterprise Curator will reach out to your email within 12 business hours.
               </p>
             </motion.div>
           ) : (
@@ -1810,7 +1833,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
               [ SUPPORT / VAULT HELP DESK ]
             </span>
             <p className="text-zinc-400 text-[10.5px] leading-relaxed uppercase">
-              Having issues downloading WAV stems or verifying digital license records? Submit a priority ticket directly to our terminal admin.
+              Having issues downloading WAV stems or verifying digital license records? Submit a priority ticket directly to our support team.
             </p>
           </div>
 
@@ -1962,9 +1985,9 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
           "3. USAGE: Redistribution or algorithmic mining of archive materials without validated licenses is heavily prosecuted under international copyright agreements."
         ],
         "privacy": [
-          "1. REGISTRATION DATA: We collect terminal identifiers, purchase histories, and secure emails strictly for clearance tracking.",
+          "1. REGISTRATION DATA: We collect account identifiers, purchase histories, and emails strictly for order and license fulfillment.",
           "2. ENCRYPTION: Communication signals are routed through secure, server-side proxies. We never retain payment codes.",
-          "3. COMPLIANCE: Data operations satisfy all federal privacy requirements in Lagos, Nigeria and Atlanta, USA."
+          "3. COMPLIANCE: Data operations satisfy all privacy requirements in Lagos, Nigeria and Atlanta, USA."
         ],
         "cookies": [
           "1. SESSIONS: The portal utilizes secure local tokens to cache cart items and maintain active audio loops.",
@@ -1976,7 +1999,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
         ],
         "acceptable-use": [
           "1. FORBIDDEN VECTORS: You may not use Owl Clock fragments to feed deep artificial networks or audio mimicry frameworks.",
-          "2. DEFIANT ACTION: Any unauthorized server probing will automatically lock access terminals via Security Protocol SYS-44."
+          "2. ACCEPTABLE USE: Any unauthorized attempts to breach security will result in account suspension."
         ]
       };
 
@@ -2054,6 +2077,19 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
     // 13. ADMINISTRATIVE CRUD CORE (USERS & PAYMENTS)
     // ----------------------------------------------------
     if (slug === "admin" || slug === "admin-console" || slug === "system") {
+      if (!isLoggedIn || !isAdminUser(currentUserEmail || userEmail)) {
+        return (
+          <div className="space-y-4 py-8 text-center font-mono">
+            <span className="text-3xl block">⛔</span>
+            <p className="text-red-400 font-bold uppercase text-xs tracking-wider">
+              ACCESS DENIED // 403 FORBIDDEN
+            </p>
+            <p className="text-zinc-400 text-xs leading-relaxed max-w-sm mx-auto font-sans">
+              Administrative authorization required. Client accounts do not have permission to access the Administrative Console.
+            </p>
+          </div>
+        );
+      }
       return renderAdminPanel();
     }
 
@@ -2061,7 +2097,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
     return (
       <div className="space-y-3.5 py-2">
         <p className="text-zinc-400 text-[10.5px] leading-relaxed uppercase tracking-wider">
-          {body || `ACCESS TO "${title}" IS CURRENTLY UNREACHABLE OR DEMANDS HIGHER CRYPTOGRAPHIC CLEARANCE. CONTACT TRANSMISSIONS ADMIN.`}
+          {body || `Access to "${title}" is currently unavailable. Please contact support.`}
         </p>
         
         <div className="border border-zinc-900 bg-neutral-950 p-2.5 flex items-center gap-2.5">
@@ -2076,7 +2112,8 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
 
   const body = `ACCESS TO "${title}" IS CURRENTLY UNREACHABLE OR DEMANDS HIGHER CRYPTOGRAPHIC CLEARANCE. CONTACT TRANSMISSIONS ADMIN.`;
 
-  const isDashboardView = type !== "login";
+  const isAuthView = type === "login" || type === "signup" || type === "register" || type === "auth";
+  const isDashboardView = type === "dashboard" || type === "client-dashboard" || type === "my-licenses";
 
   if (isDashboardView) {
     return (
@@ -2119,7 +2156,7 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
                 <ClientDashboard
                   currentUserEmail={currentUserEmail || userEmail}
                   onClose={onClose}
-                  onOpenAdmin={onOpenAdmin}
+                  onOpenAdmin={isLoggedIn && isAdminUser(currentUserEmail || userEmail) ? onOpenAdmin : undefined}
                   onRefreshData={onRefreshData}
                 />
               </div>
@@ -2139,6 +2176,203 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
     );
   }
 
+  if (isAuthView) {
+    return (
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="transmissions-overlay auth-page fixed inset-0 bg-black/95 backdrop-blur-md z-[100] flex items-center justify-center p-4 select-none font-sans"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="border border-zinc-800 bg-[#080808] p-6 max-w-md w-full text-left space-y-4 shadow-[0_20px_50px_rgba(0,0,0,0.95)] relative rounded-none font-sans"
+            >
+              {/* Header */}
+              <div className="flex justify-between items-start border-b border-zinc-900 pb-3">
+                <div className="space-y-1">
+                  <span className="text-[9px] tracking-wider uppercase text-zinc-500 font-semibold block">
+                    Account Access
+                  </span>
+                  <h4 className="text-white font-bold text-sm tracking-wider leading-tight uppercase font-sans">
+                    {loginIsRegister ? "Create an Account" : "Sign In to Your Account"}
+                  </h4>
+                </div>
+                <button 
+                  onClick={onClose} 
+                  className="text-zinc-500 hover:text-white transition-colors cursor-pointer text-xs p-1"
+                  title="Close"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Top Tabs: SIGN UP & SIGN IN */}
+              <div className="grid grid-cols-2 gap-1 bg-black border border-zinc-850 p-1 text-xs font-sans">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginIsRegister(true);
+                    setLoginError("");
+                  }}
+                  className={`py-2 px-3 font-semibold uppercase tracking-wider text-center transition-all cursor-pointer ${
+                    loginIsRegister
+                      ? "bg-white text-black"
+                      : "text-zinc-400 hover:text-white hover:bg-zinc-900"
+                  }`}
+                >
+                  Sign Up
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginIsRegister(false);
+                    setLoginError("");
+                  }}
+                  className={`py-2 px-3 font-semibold uppercase tracking-wider text-center transition-all cursor-pointer ${
+                    !loginIsRegister
+                      ? "bg-white text-black"
+                      : "text-zinc-400 hover:text-white hover:bg-zinc-900"
+                  }`}
+                >
+                  Sign In
+                </button>
+              </div>
+
+              {/* Form Content */}
+              <div className="py-1">
+                {loginSuccess ? (
+                  <div className="space-y-4 text-center py-6 font-sans">
+                    <div className="w-10 h-10 border border-[#00E676]/40 bg-[#00E676]/10 text-[#00E676] rounded-full flex items-center justify-center mx-auto text-base">
+                      ✓
+                    </div>
+                    <div className="space-y-1">
+                      <h5 className="text-[#00E676] text-sm font-bold uppercase tracking-wider">
+                        Successfully Signed In
+                      </h5>
+                      <p className="text-zinc-400 text-xs">
+                        Welcome back, {loginEmail}...
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <form onSubmit={handleOverlayLoginSubmit} className="space-y-4 font-sans">
+                    <p className="text-zinc-400 text-xs leading-relaxed">
+                      {loginIsRegister 
+                        ? "Create an account to access your music licenses, master audio stems, and agreements."
+                        : "Welcome back. Sign in to access your account, purchases, and downloads."
+                      }
+                    </p>
+
+                    {loginError && (
+                      <div className="text-xs text-red-400 bg-red-950/30 border border-red-900/50 p-3 leading-normal">
+                        {loginError}
+                      </div>
+                    )}
+
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <label className="text-zinc-400 text-xs block font-medium">
+                          Email Address
+                        </label>
+                        <input
+                          type="email"
+                          required
+                          disabled={loginLoading}
+                          value={loginEmail}
+                          onChange={(e) => setLoginEmail(e.target.value)}
+                          placeholder="name@example.com"
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          className="w-full bg-black border border-zinc-800 focus:border-white text-white placeholder-zinc-600 text-xs px-3.5 py-2.5 rounded-none transition-colors focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-zinc-400 text-xs block font-medium">
+                          Password
+                        </label>
+                        <input
+                          type="password"
+                          required
+                          disabled={loginLoading}
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          placeholder="Enter your password"
+                          className="w-full bg-black border border-zinc-800 focus:border-white text-white placeholder-zinc-600 text-xs px-3.5 py-2.5 rounded-none transition-colors focus:outline-none font-mono"
+                        />
+                      </div>
+
+                      {loginIsRegister && (
+                        <div className="space-y-1.5">
+                          <label className="text-zinc-400 text-xs block font-medium">
+                            Confirm Password
+                          </label>
+                          <input
+                            type="password"
+                            required
+                            disabled={loginLoading}
+                            value={loginConfirmPassword}
+                            onChange={(e) => setLoginConfirmPassword(e.target.value)}
+                            placeholder="Re-enter your password"
+                            className="w-full bg-black border border-zinc-800 focus:border-white text-white placeholder-zinc-600 text-xs px-3.5 py-2.5 rounded-none transition-colors focus:outline-none font-mono"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <button 
+                      type="submit"
+                      disabled={loginLoading}
+                      className="w-full bg-white text-black font-semibold text-xs tracking-wider uppercase py-3 transition-all cursor-pointer rounded-none hover:bg-[#D9D6CA]"
+                    >
+                      {loginLoading 
+                        ? "Please wait..." 
+                        : loginIsRegister 
+                          ? "Create Account" 
+                          : "Sign In"
+                      }
+                    </button>
+
+                    <div className="text-center pt-1">
+                      <button
+                        type="button"
+                        disabled={loginLoading}
+                        onClick={() => {
+                          setLoginIsRegister(!loginIsRegister);
+                          setLoginError("");
+                        }}
+                        className="text-zinc-400 hover:text-white text-xs underline cursor-pointer"
+                      >
+                        {loginIsRegister 
+                          ? "Already have an account? Sign In" 
+                          : "Don't have an account? Sign Up"
+                        }
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+
+              <button 
+                onClick={onClose} 
+                disabled={loginLoading}
+                className="w-full bg-zinc-950 border border-zinc-850 hover:border-zinc-700 hover:text-white text-zinc-400 text-xs uppercase tracking-wider py-2.5 transition-all cursor-pointer rounded-none"
+              >
+                Cancel
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  }
+
   return (
     <>
       <AnimatePresence>
@@ -2147,138 +2381,48 @@ LLC ARCHIVE REG. : ATLANTA, GEORGIA • 2026 LOMON RECORDS
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="transmissions-overlay dashboard-page fixed inset-0 bg-black/95 backdrop-blur-md z-[100] flex items-center justify-center p-4 select-none font-sans"
+            className="transmissions-overlay fixed inset-0 bg-black/95 backdrop-blur-md z-[100] flex items-center justify-center p-4 select-text font-sans"
           >
-          <motion.div 
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.95, opacity: 0 }}
-            className="border border-zinc-850 bg-[#050505] p-6 max-w-md w-full text-left space-y-4 shadow-[0_20px_50px_rgba(0,0,0,0.8)] relative rounded-sm font-sans"
-          >
-            {/* Header */}
-            <div className="flex justify-between items-start border-b border-zinc-900 pb-3">
-              <div className="space-y-1">
-                <span className="text-[8px] tracking-[0.3em] uppercase text-[#D9D6CA]/50 font-bold block">
-                  [ {subtitle || "TRANSMISSION"} ]
-                </span>
-                <h4 className="text-[#D9D6CA] font-bold text-xs uppercase tracking-widest leading-tight">
-                  {title}
-                </h4>
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="border border-zinc-850 bg-[#050505] p-6 max-w-2xl w-full text-left space-y-4 shadow-[0_20px_50px_rgba(0,0,0,0.8)] relative rounded-sm font-sans max-h-[90vh] overflow-y-auto"
+            >
+              {/* Header */}
+              <div className="flex justify-between items-start border-b border-zinc-900 pb-3">
+                <div className="space-y-1">
+                  <span className="text-[8px] tracking-[0.3em] uppercase text-[#D9D6CA]/50 font-bold block">
+                    [ {subtitle || "TRANSMISSION"} ]
+                  </span>
+                  <h4 className="text-[#D9D6CA] font-bold text-xs uppercase tracking-widest leading-tight">
+                    {title}
+                  </h4>
+                </div>
+                <button 
+                  onClick={onClose} 
+                  className="text-zinc-500 hover:text-white transition-colors cursor-pointer text-xs p-1"
+                  title="Dismiss"
+                >
+                  ✕
+                </button>
               </div>
+
+              {/* Content */}
+              <div className="py-2">
+                {renderContent()}
+              </div>
+
               <button 
                 onClick={onClose} 
-                className="text-zinc-500 hover:text-white transition-colors cursor-pointer text-xs p-1"
-                title="Dismiss"
+                className="w-full bg-zinc-900 border border-zinc-800 hover:border-[#D9D6CA]/40 hover:text-white text-zinc-300 font-mono text-[9px] tracking-[0.25em] uppercase py-3 transition-all cursor-pointer rounded-none"
               >
-                ✕
+                CLOSE WINDOW
               </button>
-            </div>
-
-            {/* Content: Auth form */}
-            <div className="py-1">
-              {loginSuccess ? (
-                <div className="space-y-4 text-center py-6">
-                  <div className="w-10 h-10 border border-[#00E676]/40 bg-[#00E676]/10 text-[#00E676] rounded-full flex items-center justify-center mx-auto">
-                    ✓
-                  </div>
-                  <div className="space-y-1">
-                    <h5 className="text-[#00E676] text-xs font-bold tracking-widest uppercase">
-                      SECURE LINK ESTABLISHED
-                    </h5>
-                    <p className="text-zinc-500 text-[9px] uppercase">
-                      Initializing terminal access keys for {(loginEmail || "").toUpperCase()}...
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <form onSubmit={handleOverlayLoginSubmit} className="space-y-4">
-                  <p className="text-zinc-400 text-[10.5px] leading-relaxed uppercase">
-                    Authenticate to establish a secure, encrypted connection to your private document dashboard.
-                  </p>
-
-                  {loginError && (
-                    <div className="text-[9px] text-red-500 bg-red-950/10 border border-red-900/40 p-2 uppercase">
-                      HANDSHAKE ERROR: {loginError}
-                    </div>
-                  )}
-
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <label className="text-zinc-500 text-[7.5px] uppercase block tracking-wider">
-                        EMAIL ADDR:
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        disabled={loginLoading}
-                        value={loginEmail}
-                        onChange={(e) => setLoginEmail(e.target.value)}
-                        placeholder="RECIPIENT@SYSTEM.LOCAL"
-                        className="w-full bg-black border border-zinc-900 focus:border-[#D9D6CA]/40 text-white font-mono placeholder-zinc-800 text-[10px] px-3 py-2.5 rounded-none uppercase transition-colors focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-zinc-500 text-[7.5px] uppercase block tracking-wider">
-                        ACCESS CIPHER (PASSWORD):
-                      </label>
-                      <input
-                        type="password"
-                        required
-                        disabled={loginLoading}
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        placeholder="••••••••••••"
-                        className="w-full bg-black border border-zinc-900 focus:border-[#D9D6CA]/40 text-white font-mono placeholder-zinc-800 text-[10px] px-3 py-2.5 rounded-none transition-colors focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Mode switcher (Sign in vs Register) */}
-                  <div className="text-left">
-                    <button
-                      type="button"
-                      disabled={loginLoading}
-                      onClick={() => {
-                        setLoginIsRegister(!loginIsRegister);
-                        setLoginError("");
-                      }}
-                      className="text-[#D9D6CA] hover:text-white text-[9px] uppercase tracking-wider underline cursor-pointer"
-                    >
-                      {loginIsRegister 
-                        ? "Already registered? Connect Existing Terminal" 
-                        : "Need an account? Register New Terminal"
-                      }
-                    </button>
-                  </div>
-
-                  <button 
-                    type="submit"
-                    disabled={loginLoading}
-                    className="w-full bg-[#D9D6CA] text-black font-mono font-bold text-[10px] tracking-[0.2em] uppercase py-3 transition-all cursor-pointer rounded-none hover:bg-white"
-                  >
-                    {loginLoading 
-                      ? "INITIATING HANDSHAKE..." 
-                      : loginIsRegister 
-                        ? "REGISTER & CONNECT TERMINAL" 
-                        : "CONNECT TERMINAL"
-                    }
-                  </button>
-                </form>
-              )}
-            </div>
-
-            <button 
-              onClick={onClose}
-              disabled={loginLoading}
-              className="w-full bg-zinc-900 border border-zinc-800 hover:border-[#D9D6CA]/40 hover:text-white text-zinc-300 font-mono text-[9px] tracking-[0.25em] uppercase py-3 transition-all cursor-pointer rounded-none"
-            >
-              CANCEL CONNECTION
-            </button>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
 
       {/* 8. HIDDEN DOCUMENT VAULT SUB-MODAL */}
       <AnimatePresence>

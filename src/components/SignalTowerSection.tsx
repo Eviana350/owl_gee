@@ -61,7 +61,7 @@ export default function SignalTowerSection() {
               // TELECOMM SPECIFICATION
             </span>
             <p className="text-xs leading-relaxed">
-              Signals dispatched here are logged automatically onto the sentinel’s terminal. Frequencies are reviewed twice daily during the hours nobody remembers.
+              Signals dispatched here are logged automatically onto our support desk. Inquiries are reviewed twice daily during standard studio hours.
             </p>
           </div>
 

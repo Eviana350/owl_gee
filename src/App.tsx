@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Menu, X, ArrowUpRight, Package, Vault, Mail, Download, ChevronRight } from "lucide-react";
+import { Menu, X, ArrowUpRight, Package, Vault, Mail, ChevronRight } from "lucide-react";
 
 // Components Imports
 import WelcomeScreen from "./components/WelcomeScreen";
@@ -28,6 +28,7 @@ import ProposalPage from "./components/ProposalPage";
 import CookieConsentBanner from "./components/CookieConsentBanner";
 import { Fragment, FRAGMENTS } from "./data";
 import { parseFragmentTimeDetails } from "./lib/fragmentService";
+import { isAdminUser } from "./lib/authUtils";
 
 
 type NavigationTab =
@@ -144,6 +145,18 @@ export default function App() {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState<boolean>(false);
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string>("");
+  const [currentUserRole, setCurrentUserRole] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem("lomon_user_role");
+      if (saved) return saved;
+      const email = localStorage.getItem("lomon_user_email");
+      return isAdminUser(email) ? "admin" : "client";
+    } catch {
+      return "client";
+    }
+  });
+
+  const isUserAdmin = isLoggedIn && (currentUserRole === "admin" || isAdminUser(currentUserEmail));
   const [userLicenses, setUserLicenses] = useState<any[]>([]);
   const [userRequests, setUserRequests] = useState<any[]>([]);
   const [userEmailLogs, setUserEmailLogs] = useState<any[]>([]);
@@ -187,6 +200,16 @@ export default function App() {
   const [contactInitialSubj, setContactInitialSubj] = useState<string>("");
 
   const handleOpenAdmin = () => {
+    // If not logged in, prompt for admin authentication
+    if (!isLoggedIn) {
+      setInfoOverlay({ title: "ACCOUNT ACCESS", subtitle: "ADMIN ACCESS", body: "", type: "login" });
+      return;
+    }
+    // If logged in as client (not admin), redirect to client dashboard
+    if (!isUserAdmin) {
+      handleOpenClient();
+      return;
+    }
     setMobileMenuOpen(false);
     setInfoOverlay(null);
     setCartOpen(false);
@@ -642,18 +665,24 @@ export default function App() {
           setIsLoggedIn(true);
           setAuthToken(token);
           setCurrentUserEmail(data.email);
+          const resolvedRole = data.role || (isAdminUser(data.email) ? "admin" : "client");
+          setCurrentUserRole(resolvedRole);
+          localStorage.setItem("lomon_user_role", resolvedRole);
           setCheckoutEmail(data.email);
           fetchUserData(token);
         } else {
           localStorage.removeItem("lomon_auth_token");
+          localStorage.removeItem("lomon_user_role");
         }
       })
       .catch(() => {
         // Fallback to local storage credentials if API node is client-only
         const savedEmail = localStorage.getItem("lomon_user_email") || "client@archive.internal";
+        const savedRole = localStorage.getItem("lomon_user_role") || (isAdminUser(savedEmail) ? "admin" : "client");
         setIsLoggedIn(true);
         setAuthToken(token);
         setCurrentUserEmail(savedEmail);
+        setCurrentUserRole(savedRole);
         setCheckoutEmail(savedEmail);
         fetchUserData(token);
       });
@@ -806,9 +835,86 @@ export default function App() {
   );
 
   if (isAdminDashboard || adminViewActive) {
+    if (!isLoggedIn) {
+      return (
+        <div className="min-h-screen bg-black text-[#D9D6CA] font-mono flex flex-col items-center justify-center p-6 selection:bg-[#D9D6CA] selection:text-black">
+          <div className="max-w-md w-full border border-zinc-900 bg-[#090909] p-8 space-y-6 text-center shadow-2xl">
+            <div className="w-12 h-12 mx-auto rounded-full bg-zinc-900 flex items-center justify-center border border-zinc-800">
+              <span className="text-xl">🔒</span>
+            </div>
+            <div className="space-y-2">
+              <span className="text-[10px] tracking-[0.3em] uppercase text-zinc-500 font-bold block">
+                RESTRICTED FREQUENCY // 0xADMIN
+              </span>
+              <h1 className="text-lg font-bold text-white tracking-widest uppercase">
+                ADMIN AUTHENTICATION REQUIRED
+              </h1>
+              <p className="text-xs text-zinc-400 font-sans leading-relaxed">
+                The Master Administrative Console requires administrator credentials. Please sign in with an authorized administrator account.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => {
+                  handleCloseDashboards();
+                  setInfoOverlay({ title: "ACCOUNT ACCESS", subtitle: "ADMIN ACCESS", body: "", type: "login" });
+                }}
+                className="flex-1 bg-white text-black hover:bg-zinc-200 py-2.5 px-4 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                Sign In As Admin
+              </button>
+              <button
+                onClick={handleCloseDashboards}
+                className="flex-1 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white py-2.5 px-4 text-xs uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                Return to Archive
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (!isUserAdmin) {
+      return (
+        <div className="min-h-screen bg-black text-[#D9D6CA] font-mono flex flex-col items-center justify-center p-6 selection:bg-[#D9D6CA] selection:text-black">
+          <div className="max-w-md w-full border border-red-950/70 bg-[#0e0707] p-8 space-y-6 text-center shadow-[0_0_50px_rgba(255,0,0,0.1)]">
+            <div className="w-12 h-12 mx-auto rounded-full bg-red-950/40 flex items-center justify-center border border-red-900/50">
+              <span className="text-xl text-red-400">⛔</span>
+            </div>
+            <div className="space-y-2">
+              <span className="text-[10px] tracking-[0.3em] uppercase text-red-400 font-bold block">
+                CLEARANCE DENIED // 403 FORBIDDEN
+              </span>
+              <h1 className="text-lg font-bold text-white tracking-widest uppercase">
+                CLIENT ACCESS ONLY
+              </h1>
+              <p className="text-xs text-zinc-300 font-sans leading-relaxed">
+                You are authenticated as <strong className="text-white font-mono">{currentUserEmail}</strong> (Client Account). You do not have authorization to access the Master Administrative Console.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={handleOpenClient}
+                className="flex-1 bg-[#00E676] text-black hover:bg-[#00E676]/90 py-2.5 px-4 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer shadow-[0_0_15px_rgba(0,230,118,0.2)]"
+              >
+                Open Client Dashboard
+              </button>
+              <button
+                onClick={handleCloseDashboards}
+                className="flex-1 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white py-2.5 px-4 text-xs uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                Return to Archive
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <AdminDashboard
-        currentUserEmail={currentUserEmail || "evianaconcepts1@gmail.com"}
+        currentUserEmail={currentUserEmail}
         onClose={handleCloseDashboards}
         onOpenClient={handleOpenClient}
       />
@@ -832,11 +938,11 @@ export default function App() {
   if (isClientDashboard || clientViewActive) {
     return (
       <ClientDashboard
-        currentUserEmail={currentUserEmail || "evianaconcepts1@gmail.com"}
+        currentUserEmail={currentUserEmail}
         authToken={authToken}
         userLicenses={userLicenses}
         onClose={handleCloseDashboards}
-        onOpenAdmin={handleOpenAdmin}
+        onOpenAdmin={isLoggedIn && isAdminUser(currentUserEmail) ? handleOpenAdmin : undefined}
         onSelectFragment={(frag) => {
           setClientViewActive(false);
           setSelectedFragment(frag);
@@ -916,34 +1022,65 @@ export default function App() {
     }
   }
 
-  const handleLoginSuccess = (email: string, token: string) => {
+  const handleLoginSuccess = (email: string, token: string, role?: string) => {
     localStorage.setItem("lomon_auth_token", token);
     localStorage.setItem("lomon_user_email", email);
+    const resolvedRole = role || (isAdminUser(email) ? "admin" : "client");
+    localStorage.setItem("lomon_user_role", resolvedRole);
     setIsLoggedIn(true);
     setAuthToken(token);
     setCurrentUserEmail(email);
+    setCurrentUserRole(resolvedRole);
     setCheckoutEmail(email);
     fetchUserData(token);
   };
 
   const handleLogout = () => {
-    if (authToken) {
+    const token = authToken || localStorage.getItem("lomon_auth_token");
+    const email = currentUserEmail || localStorage.getItem("lomon_user_email");
+    if (token || email) {
       fetch("/api/auth/logout", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${authToken}`
-        }
-      }).catch(() => {
-        // Silent catch for client mode
-      });
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ email: email || "" })
+      }).catch(() => {});
     }
-    localStorage.removeItem("lomon_auth_token");
-    localStorage.removeItem("lomon_user_email");
+
+    try {
+      localStorage.removeItem("lomon_auth_token");
+      localStorage.removeItem("token");
+      localStorage.removeItem("lomon_user_email");
+      localStorage.removeItem("lomon_user_role");
+      localStorage.removeItem("lomon_admin_email");
+      localStorage.removeItem("lomon_auth_email");
+      localStorage.removeItem("lomon_user_licenses");
+      localStorage.removeItem("lomon_user_requests");
+      localStorage.removeItem("lomon_pending_purchase");
+      sessionStorage.clear();
+    } catch (_e) {}
+
     setIsLoggedIn(false);
     setAuthToken(null);
     setCurrentUserEmail("");
+    setCurrentUserRole("client");
     setUserLicenses([]);
     setUserRequests([]);
+    setClientViewActive(false);
+    setAdminViewActive(false);
+    setProfileDropdownOpen(false);
+    setMobileMenuOpen(false);
+    setInfoOverlay(null);
+
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname.toLowerCase();
+      if (path === "/admin" || path === "/client" || path === "/dashboard" || path === "/portal") {
+        window.history.pushState({}, "The Owl Clock", "/");
+      }
+      window.dispatchEvent(new CustomEvent("lomon_auth_logged_out"));
+    }
   };
 
   const handleAddToCart = (fragment: Fragment, tierId: string, tierTitle: string, price: string, directToCheckout = true) => {
@@ -1174,42 +1311,29 @@ export default function App() {
                   })}
                 </nav>
 
-                {/* Right Column: Collection / Crate + Archive Access + Dashboard Access */}
+                {/* Right Column: Collection / Crate + Authentication */}
                 <div className="flex items-center gap-2 xl:gap-3 shrink-0">
-                  {/* Download Codebase direct access */}
-                  <a
-                    href="/owl-clock-source.zip"
-                    download="the-owl-clock-codebase.zip"
-                    className="flex items-center gap-1 xl:gap-1.5 border border-zinc-900 bg-neutral-950 text-[#D9D6CA] hover:border-[#00E676] hover:text-white px-2 xl:px-3 py-1.5 text-[8.5px] xl:text-[9px] uppercase tracking-wider xl:tracking-widest transition-colors cursor-pointer rounded-none select-none whitespace-nowrap"
-                    title="Download complete latest codebase as a ZIP archive"
-                  >
-                    <Download size={11} className="text-[#00E676]" />
-                    <span>DOWNLOAD CODE (.ZIP)</span>
-                  </a>
-
-                  {/* Admin Console direct access for Admin */}
-                  {((currentUserEmail || "").toLowerCase() === "evianaconcepts1@gmail.com" || (currentUserEmail || "").toLowerCase() === "admin@system.local" || !isLoggedIn) && (
-                    <button
-                      onClick={handleOpenAdmin}
-                      className="flex items-center gap-1 xl:gap-1.5 border border-zinc-900 bg-neutral-950 text-[#D9D6CA] hover:border-white hover:text-white px-2 xl:px-3 py-1.5 text-[8.5px] xl:text-[9px] uppercase tracking-wider xl:tracking-widest transition-colors cursor-pointer rounded-none select-none whitespace-nowrap"
-                      title="Open Master Administrative Dashboard"
+                  {/* Unauthenticated State (Not Logged In): Display "Sign Up" button (in white and black) */}
+                  {!isLoggedIn ? (
+                    <button 
+                      onClick={() => setInfoOverlay({ title: "ACCOUNT ACCESS", subtitle: "SIGN IN OR SIGN UP", body: "", type: "signup" })}
+                      className="border border-white bg-white text-black hover:bg-[#D9D6CA] hover:text-black px-2.5 xl:px-3 py-1.5 text-[8.5px] xl:text-[9px] font-bold uppercase tracking-wider xl:tracking-widest transition-all cursor-pointer rounded-none select-none whitespace-nowrap font-mono shadow-[0_2px_8px_rgba(255,255,255,0.15)]"
+                      title="Sign Up / Sign In"
                     >
-                      <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                      <span>ADMIN</span>
+                      <span>SIGN UP</span>
+                    </button>
+                  ) : (
+                    /* Authenticated State (Logged In): The sign up button becomes the role-based Dashboard button */
+                    <button
+                      onClick={isUserAdmin ? handleOpenAdmin : handleOpenClient}
+                      className="border border-white bg-white text-black hover:bg-[#D9D6CA] hover:text-black px-2.5 xl:px-3 py-1.5 text-[8.5px] xl:text-[9px] font-bold uppercase tracking-wider xl:tracking-widest transition-all cursor-pointer rounded-none select-none whitespace-nowrap font-mono shadow-[0_2px_8px_rgba(255,255,255,0.15)]"
+                      title={isUserAdmin ? "Open Admin Dashboard" : "Open Client Dashboard"}
+                    >
+                      <span>{isUserAdmin ? "ADMIN DASHBOARD" : "DASHBOARD"}</span>
                     </button>
                   )}
 
-                  {/* Dashboard direct access */}
-                  <button
-                    onClick={handleOpenClient}
-                    className="flex items-center gap-1 xl:gap-1.5 border border-zinc-900 bg-neutral-950 text-[#D9D6CA] hover:border-[#00E676] hover:text-white px-2 xl:px-3 py-1.5 text-[8.5px] xl:text-[9px] uppercase tracking-wider xl:tracking-widest transition-colors cursor-pointer rounded-none select-none whitespace-nowrap"
-                    title="Open Client Dashboard"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#00E676] animate-pulse" />
-                    <span>DASHBOARD</span>
-                  </button>
-
-                  {/* Collection / Crate button */}
+                  {/* Collection / Crate button - if empty do not write 0 */}
                   <button 
                     onClick={() => {
                       setCartOpen(!cartOpen);
@@ -1222,16 +1346,17 @@ export default function App() {
                     title="View Cart"
                   >
                     <Package size={11} className={`shrink-0 ${cart.length > 0 ? "text-[#D9D6CA]" : ""}`} />
-                    <span className="leading-none flex items-center">CART {cart.length}</span>
+                    <span className="leading-none flex items-center">CART{cart.length > 0 ? ` ${cart.length}` : ""}</span>
                   </button>
 
-                   {isLoggedIn ? (
+                  {/* Authenticated State (Logged In): User Avatar with dropdown strictly containing identity & logout */}
+                  {isLoggedIn && (
                     <div className="relative z-50">
                       {/* Interactive Avatar Button */}
                       <button 
                         onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
                         className="flex items-center gap-2 border border-zinc-900 hover:border-[#D9D6CA] bg-neutral-950 px-2 py-1.5 transition-colors cursor-pointer rounded-none select-none"
-                        title="Open User Terminal Menu"
+                        title="Open User Account Menu"
                       >
                         <UserAvatar email={currentUserEmail} />
                         <span className="text-[7px] text-zinc-500">▼</span>
@@ -1252,73 +1377,46 @@ export default function App() {
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 8, scale: 0.95 }}
                               transition={{ duration: 0.15 }}
-                              className="absolute right-0 mt-2 w-64 bg-[#0a0a0a] border border-zinc-900 rounded-none shadow-[0_10px_30px_rgba(0,0,0,0.95)] p-4 text-left font-mono z-50 space-y-3"
+                              className="absolute right-0 mt-2 w-56 bg-[#0a0a0a] border border-zinc-900 rounded-none shadow-[0_10px_30px_rgba(0,0,0,0.95)] p-4 text-left font-mono z-50 space-y-3"
                             >
-                              {/* Email Display */}
+                              {/* Email & Role Display */}
                               <div className="space-y-1 select-text">
-                                <span className="text-[7.5px] tracking-[0.25em] text-zinc-500 font-bold block uppercase">
-                                  TERMINAL GATEWAY
-                                </span>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[7.5px] tracking-[0.25em] text-zinc-500 font-bold block uppercase">
+                                    ACCOUNT
+                                  </span>
+                                  <span className={`text-[7px] px-1.5 py-0.5 font-bold uppercase tracking-wider ${
+                                    isUserAdmin ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "bg-zinc-800 text-zinc-300 border border-zinc-700"
+                                  }`}>
+                                    {isUserAdmin ? "ADMIN" : "CLIENT"}
+                                  </span>
+                                </div>
                                 <span className="text-[10px] text-zinc-300 font-bold break-all block">
                                   {(currentUserEmail || "").toLowerCase()}
                                 </span>
                               </div>
 
-                              {/* Demarcation line */}
-                              <div className="h-[1px] bg-zinc-900 w-full" />
-
-                              {/* Navigation Link to Dashboard (Client Portal) */}
+                              {/* Direct Dashboard Link */}
                               <div>
-                                <button
-                                  onClick={handleOpenClient}
-                                  className="w-full text-left text-[9.5px] text-[#D9D6CA] hover:text-white uppercase transition-colors flex items-center justify-between cursor-pointer py-1 font-bold tracking-wider"
+                                <button 
+                                  onClick={() => {
+                                    setProfileDropdownOpen(false);
+                                    if (isUserAdmin) {
+                                      handleOpenAdmin();
+                                    } else {
+                                      handleOpenClient();
+                                    }
+                                  }}
+                                  className="w-full text-left text-[10px] text-[#D9D6CA] hover:text-white transition-colors cursor-pointer py-1 font-mono uppercase tracking-wider block"
                                 >
-                                  <span>Client Dashboard</span>
-                                  <span className="text-zinc-600 font-bold">→</span>
+                                  {isUserAdmin ? "→ Open Admin Console" : "→ Open Client Dashboard"}
                                 </button>
                               </div>
 
                               {/* Demarcation line */}
                               <div className="h-[1px] bg-zinc-900 w-full" />
 
-                              {/* Administrative Console Link */}
-                              {((currentUserEmail || "").toLowerCase() === "evianaconcepts1@gmail.com" || (currentUserEmail || "").toLowerCase() === "admin@system.local" || !isLoggedIn) && (
-                                <>
-                                  <div>
-                                    <button
-                                      onClick={handleOpenAdmin}
-                                      className="w-full text-left text-[9.5px] text-[#D9D6CA] hover:text-white uppercase transition-colors flex items-center justify-between cursor-pointer py-1 font-bold tracking-wider"
-                                    >
-                                      <span>Admin Dashboard</span>
-                                      <span className="text-zinc-600 font-bold">→</span>
-                                    </button>
-                                  </div>
-
-                                  {/* Demarcation line */}
-                                  <div className="h-[1px] bg-zinc-900 w-full" />
-                                </>
-                              )}
-
-                              {/* Direct Codebase Download */}
-                              <div>
-                                <a
-                                  href="/owl-clock-source.zip"
-                                  download="the-owl-clock-codebase.zip"
-                                  className="w-full text-left text-[9.5px] text-[#00E676] hover:text-white uppercase transition-colors flex items-center justify-between cursor-pointer py-1 font-bold tracking-wider"
-                                  title="Download complete latest codebase as a ZIP archive"
-                                >
-                                  <span className="flex items-center gap-1.5">
-                                    <Download size={11} />
-                                    <span>Download Code (.ZIP)</span>
-                                  </span>
-                                  <span>↓</span>
-                                </a>
-                              </div>
-
-                              {/* Demarcation line */}
-                              <div className="h-[1px] bg-zinc-900 w-full" />
-
-                              {/* Logout Link with Normal Text */}
+                              {/* Logout Link */}
                               <div>
                                 <button 
                                   onClick={() => {
@@ -1335,13 +1433,6 @@ export default function App() {
                         )}
                       </AnimatePresence>
                     </div>
-                  ) : (
-                    <button 
-                      onClick={() => setInfoOverlay({ title: "CONNECT TERMINAL", subtitle: "AUTH GATEWAY", body: "", type: "login" })}
-                      className="border border-zinc-900 bg-neutral-950 text-[#D9D6CA] hover:border-[#D9D6CA] hover:text-white px-2 xl:px-3 py-1.5 text-[8.5px] xl:text-[9px] uppercase tracking-wider xl:tracking-widest transition-colors cursor-pointer rounded-none select-none whitespace-nowrap"
-                    >
-                      <span>CONNECT TERMINAL</span>
-                    </button>
                   )}
                 </div>
               </div>
@@ -1369,22 +1460,19 @@ export default function App() {
 
                 {/* Right: User / Login, Cart & Menu Icon */}
                 <div className="flex items-center gap-1.5">
-                  {isLoggedIn ? (
+                  {!isLoggedIn ? (
                     <button
-                      onClick={() => {
-                        setClientViewActive(true);
-                      }}
-                      className="flex items-center gap-1 border border-zinc-900 bg-neutral-950 text-[#D9D6CA] hover:border-[#D9D6CA] px-2 py-1 text-[9px] uppercase tracking-wider transition-colors cursor-pointer rounded-none select-none"
-                      title="My Dashboard"
+                      onClick={() => setInfoOverlay({ title: "ACCOUNT ACCESS", subtitle: "SIGN IN OR SIGN UP", body: "", type: "signup" })}
+                      className="border border-white bg-white text-black hover:bg-[#D9D6CA] px-2 py-1.5 text-[8px] font-bold uppercase tracking-wider transition-colors cursor-pointer rounded-none select-none whitespace-nowrap font-mono shadow-[0_2px_6px_rgba(255,255,255,0.12)]"
                     >
-                      <UserAvatar email={currentUserEmail} />
+                      <span>SIGN UP</span>
                     </button>
                   ) : (
                     <button
-                      onClick={() => setInfoOverlay({ title: "CONNECT TERMINAL", subtitle: "AUTH GATEWAY", body: "", type: "login" })}
-                      className="border border-zinc-900 bg-neutral-950 text-[#D9D6CA] hover:border-[#D9D6CA] hover:text-white px-2 py-1.5 text-[8.5px] uppercase tracking-wider transition-colors cursor-pointer rounded-none select-none whitespace-nowrap"
+                      onClick={isUserAdmin ? handleOpenAdmin : handleOpenClient}
+                      className="border border-white bg-white text-black hover:bg-[#D9D6CA] px-2 py-1.5 text-[8px] font-bold uppercase tracking-wider transition-colors cursor-pointer rounded-none select-none whitespace-nowrap font-mono shadow-[0_2px_6px_rgba(255,255,255,0.12)]"
                     >
-                      <span>LOGIN</span>
+                      <span>{isUserAdmin ? "ADMIN" : "DASHBOARD"}</span>
                     </button>
                   )}
 
@@ -1397,8 +1485,14 @@ export default function App() {
                     className="flex items-center gap-1.5 border border-zinc-900 bg-neutral-950 text-[#D9D6CA] hover:border-[#D9D6CA] px-2 py-1.5 text-[9px] uppercase tracking-widest transition-colors cursor-pointer rounded-none select-none leading-none"
                   >
                     <Package size={11} className={`shrink-0 ${cart.length > 0 ? "text-[#D9D6CA]" : ""}`} />
-                    <span className="leading-none flex items-center">CART {cart.length}</span>
+                    <span className="leading-none flex items-center">CART{cart.length > 0 ? ` ${cart.length}` : ""}</span>
                   </button>
+
+                  {isLoggedIn && (
+                    <div className="border border-zinc-900 bg-neutral-950 p-1">
+                      <UserAvatar email={currentUserEmail} />
+                    </div>
+                  )}
 
                   <button
                     id="mobile-menu-toggle"
@@ -1422,19 +1516,24 @@ export default function App() {
                     className="absolute top-full left-0 right-0 bg-black border-b border-zinc-900 flex flex-col lg:hidden shadow-2xl z-50 overflow-y-auto"
                   >
                     <div className="p-6 pb-24 space-y-6 select-none">
-                      {/* Section 0: ACCOUNT / TERMINAL GATEWAY */}
+                      {/* Section 0: ACCOUNT / LOGIN GATEWAY */}
                       <div className="space-y-3 bg-neutral-950/80 border border-zinc-900 p-3.5">
                         <span className="text-[9px] tracking-[0.25em] text-[#D9D6CA] font-bold block uppercase border-b border-zinc-900 pb-1 text-left">
-                          TERMINAL GATEWAY
+                          ACCOUNT ACCESS
                         </span>
                         {isLoggedIn ? (
                           <div className="space-y-2.5 font-mono text-[11px] text-left">
-                            <div className="flex items-center justify-between border-b border-zinc-900 pb-2">
+                            <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2 truncate">
                                 <UserAvatar email={currentUserEmail} />
-                                <span className="text-zinc-300 font-bold truncate text-[10px]">
-                                  {(currentUserEmail || "").toLowerCase()}
-                                </span>
+                                <div className="flex flex-col truncate">
+                                  <span className="text-zinc-300 font-bold truncate text-[10px]">
+                                    {(currentUserEmail || "").toLowerCase()}
+                                  </span>
+                                  <span className="text-[7.5px] text-zinc-500 uppercase tracking-widest">
+                                    {isUserAdmin ? "ROLE: ADMINISTRATOR" : "ROLE: CLIENT"}
+                                  </span>
+                                </div>
                               </div>
                               <button
                                 onClick={() => {
@@ -1446,81 +1545,33 @@ export default function App() {
                                 LOGOUT
                               </button>
                             </div>
-                            <div className="grid grid-cols-1 gap-1.5 pt-1">
-                              <button
-                                onClick={handleOpenClient}
-                                className="text-left text-[#D9D6CA] hover:text-white uppercase font-bold text-[10.5px] py-1 flex items-center justify-between cursor-pointer"
-                              >
-                                <span>* Client Dashboard</span>
-                                <span>→</span>
-                              </button>
-
-                              {((currentUserEmail || "").toLowerCase() === "evianaconcepts1@gmail.com" || (currentUserEmail || "").toLowerCase() === "admin@system.local" || !isLoggedIn) && (
-                                <button
-                                  onClick={handleOpenAdmin}
-                                  className="text-left text-[#D9D6CA] hover:text-white uppercase font-bold text-[10.5px] py-1 flex items-center justify-between cursor-pointer"
-                                >
-                                  <span>* Admin Dashboard</span>
-                                  <span>→</span>
-                                </button>
-                              )}
-
-                              <button
-                                onClick={handleOpenClient}
-                                className="text-left text-zinc-400 hover:text-white uppercase text-[10px] py-0.5 cursor-pointer"
-                              >
-                                • My Licenses
-                              </button>
-                              <button
-                                onClick={handleOpenClient}
-                                className="text-left text-zinc-400 hover:text-white uppercase text-[10px] py-0.5 cursor-pointer"
-                              >
-                                • My Fragments
-                              </button>
-                              <button
-                                onClick={handleOpenClient}
-                                className="text-left text-zinc-400 hover:text-white uppercase text-[10px] py-0.5 cursor-pointer"
-                              >
-                                • Clearance Requests
-                              </button>
-                              <button
-                                onClick={handleOpenClient}
-                                className="text-left text-zinc-400 hover:text-white uppercase text-[10px] py-0.5 cursor-pointer"
-                              >
-                                • Account Profile
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => {
+                                setMobileMenuOpen(false);
+                                if (isUserAdmin) {
+                                  handleOpenAdmin();
+                                } else {
+                                  handleOpenClient();
+                                }
+                              }}
+                              className="w-full bg-white text-black hover:bg-[#D9D6CA] font-mono text-[10px] font-bold uppercase tracking-wider py-2 transition-colors cursor-pointer text-center block"
+                            >
+                              {isUserAdmin ? "OPEN ADMIN DASHBOARD ↗" : "OPEN CLIENT DASHBOARD ↗"}
+                            </button>
                           </div>
                         ) : (
                           <div className="space-y-2 text-left">
-                            <p className="text-[10px] text-zinc-500 font-mono">Access your archive licenses & downloads.</p>
                             <button
                               onClick={() => {
-                                setInfoOverlay({ title: "CONNECT TERMINAL", subtitle: "AUTH GATEWAY", body: "", type: "login" });
+                                setInfoOverlay({ title: "ACCOUNT ACCESS", subtitle: "SIGN IN OR SIGN UP", body: "", type: "signup" });
                                 setMobileMenuOpen(false);
                               }}
-                              className="w-full border border-zinc-800 bg-neutral-900 hover:border-[#D9D6CA] text-[#D9D6CA] hover:text-white font-mono text-[10.5px] font-bold uppercase tracking-wider py-2 transition-colors cursor-pointer"
+                              className="w-full border border-white bg-white text-black hover:bg-[#D9D6CA] font-mono text-[10.5px] font-bold uppercase tracking-wider py-2 transition-colors cursor-pointer text-center"
                             >
-                              CONNECT TERMINAL (LOGIN)
+                              SIGN UP / SIGN IN
                             </button>
                           </div>
                         )}
-
-                        {/* Direct Codebase Download for Mobile */}
-                        <div className="pt-2 border-t border-zinc-900 mt-2">
-                          <a
-                            href="/owl-clock-source.zip"
-                            download="the-owl-clock-codebase.zip"
-                            className="w-full bg-[#00E676]/10 hover:bg-[#00E676] text-[#00E676] hover:text-black border border-[#00E676]/40 text-[10px] font-bold uppercase tracking-wider py-2 px-2.5 flex items-center justify-between cursor-pointer transition-colors font-mono"
-                            title="Download complete latest codebase as a ZIP archive"
-                          >
-                            <span className="flex items-center gap-2">
-                              <Download size={12} />
-                              <span>DOWNLOAD CODE (.ZIP)</span>
-                            </span>
-                            <span>↓</span>
-                          </a>
-                        </div>
                       </div>
 
                       {/* Section Nav: MAIN NAVIGATION */}
@@ -1566,7 +1617,7 @@ export default function App() {
                               checkoutActive ? "text-white font-bold" : "text-zinc-400 hover:text-white"
                             }`}
                           >
-                            <span>* Cart {cart.length}</span>
+                            <span>* Cart{cart.length > 0 ? ` [${cart.length}]` : ""}</span>
                             {checkoutActive && <span className="text-[9px] text-[#D9D6CA]">[ ACTIVE ]</span>}
                           </button>
                         </div>
@@ -2160,7 +2211,7 @@ export default function App() {
                 >
                   <div className="flex items-center justify-between border-b border-zinc-900 pb-3 mb-4">
                     <h4 className="text-[10px] font-bold tracking-widest uppercase text-zinc-400">
-                      YOUR CART ({cart.length}):
+                      YOUR CART{cart.length > 0 ? ` (${cart.length})` : ""}:
                     </h4>
                     <button
                       onClick={() => setCartOpen(false)}
@@ -2260,10 +2311,10 @@ export default function App() {
               userRequests={userRequests}
               userEmailLogs={userEmailLogs}
               onRefreshData={() => authToken && fetchUserData(authToken)}
-              onOpenAdmin={() => {
+              onOpenAdmin={isLoggedIn && isAdminUser(currentUserEmail) ? () => {
                 setInfoOverlay(null);
                 setAdminViewActive(true);
-              }}
+              } : undefined}
               onOpenTerms={handleOpenTerms}
               onOpenPrivacy={handleOpenPrivacy}
               onOpenCookies={handleOpenCookies}
